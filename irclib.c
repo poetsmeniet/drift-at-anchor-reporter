@@ -5,6 +5,8 @@
 #include "irclib.h"
 #define MAXLEN 200
 
+//Join rooms..
+
 //Spawns interactive session to IRC server
 //- mainly for debugging
 extern int spawnShell(int *clientSocket){
@@ -26,6 +28,13 @@ extern int spawnShell(int *clientSocket){
         if(strstr(responses->buffer, "Quit") != NULL &&\
                 strncmp(cmd, "quit", 4) == 0)
             return 0;
+        
+        if(strstr(responses->buffer, "PING") != NULL){
+            printf("replying to ping..\n");
+            rc = sendMessage(clientSocket, "pong", 4);
+            if(rc == 0)
+                return 1;
+        }
 
         memset(cmd, 0, strlen(cmd));
         responses->buffer[0] = '\0';
