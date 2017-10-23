@@ -6,6 +6,7 @@
 #include "irclib.h"
 
 int main(void){
+
     //Connect to server
     char serverName[] = "geenbs.nl";
     int serverPort =  6665;
@@ -27,6 +28,17 @@ int main(void){
         printf("Error logging in, rc %d\n", rc);
         return 1;
     }
+    
+    //test rooms linked list, todo: offload this to external file
+    roomList *rooms = malloc(sizeof(roomList));
+    memcpy(rooms->roomName, "geenbs\0", 7); 
+    rooms->next = malloc(sizeof(roomList));;
+    memcpy(rooms->next->roomName, "botroom\0", 8); 
+    rooms->next->next = '\0';
+
+    joinRooms(&clientSocket, rooms);
+
+    //readIrc
     
     spawnShell(&clientSocket);
 
