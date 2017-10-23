@@ -5,6 +5,35 @@
 #include "irclib.h"
 #define MAXLEN 200
 
+//Spawns interactive session to IRC server
+//- mainly for debugging
+extern int spawnShell(int *clientSocket){
+    //Loop stdin for issueing commands
+    char *cmd = malloc(86 * sizeof(char));
+    respBuf *responses = malloc(5 * sizeof(respBuf));
+    while(1){
+        memset(cmd, 0, strlen(cmd));
+        printf("> ");
+        fgets(cmd, MAXLEN, stdin);
+        
+        int rc = sendMessage(clientSocket, cmd, strlen(cmd));
+        if(rc == 0)
+            return 1;
+        
+        recvMessage(clientSocket, responses, 1);
+        printf("%s", responses->buffer);
+
+        if(strstr(responses->buffer, "Quit") != NULL &&\
+                strncmp(cmd, "quit", 4) == 0)
+            return 0;
+
+        memset(cmd, 0, strlen(cmd));
+        responses->buffer[0] = '\0';
+    }
+
+    return 0;
+}
+
 //logs into connected irc server using specified data
 extern int ircLogin(ircData *ircData, int *clientSocket){
     //Send a message and get response(s) irc
@@ -41,6 +70,8 @@ extern int ircLogin(ircData *ircData, int *clientSocket){
 
         if(strstr(responses->buffer, "Nickname is already in us") != NULL)
             return 2;
+        
+        responses->buffer[0] = '\0';
     }
 
     return 0;

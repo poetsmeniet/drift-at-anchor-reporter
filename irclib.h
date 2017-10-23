@@ -18,5 +18,9 @@ typedef struct ircdata{
 //logs into connected irc server using specified data
 extern int ircLogin(ircData *ircData, int *clientSocket);
 
+//Spawns interactive session to IRC server
+//- mainly for debugging
+int spawnShell(int *clientSocket);
+
 #endif
 
