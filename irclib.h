@@ -16,7 +16,7 @@ typedef struct ircdata{
 }ircData;
 
 //logs into connected irc server using specified data
-extern int irclogin(ircData *ircData, int *clientSocket);
+extern int ircLogin(ircData *ircData, int *clientSocket);
 
 #endif
 
