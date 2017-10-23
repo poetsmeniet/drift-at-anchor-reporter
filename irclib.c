@@ -38,6 +38,9 @@ extern int ircLogin(ircData *ircData, int *clientSocket){
         //End of login function success
         if(strstr(responses->buffer, " MODE ") != NULL)
             return 0;
+
+        if(strstr(responses->buffer, "Nickname is already in us") != NULL)
+            return 2;
     }
 
     return 0;
