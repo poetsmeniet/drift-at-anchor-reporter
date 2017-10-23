@@ -6,6 +6,22 @@
 #define MAXLEN 200
 
 //Join rooms..
+extern int joinRooms(int *clientSocket, roomList *rooms){
+    roomList *head = rooms;
+    while(head != NULL){
+        printf("Joining room: %s\n", head->roomName);
+
+        char *cmd = malloc(MAXLEN * sizeof(char));
+        snprintf(cmd, MAXLEN, "join #%s\n", head->roomName);
+
+        int rc = sendMessage(clientSocket, cmd, strlen(cmd));
+        if(rc == 0)
+            return 1;
+        head = head->next;
+    }
+
+    return 0;
+}
 
 //Spawns interactive session to IRC server
 //- mainly for debugging
