@@ -4,15 +4,34 @@
 #include "tcp_client.h"
 #include "irclib.h"
 #define MAXLEN 200
+#define RESPBUFSZ 5
 
-//Join rooms..
-extern int joinRooms(int *clientSocket, roomList *rooms){
-    roomList *head = rooms;
+extern int parseResponses(int *clientSocket){
+    respBuf *responses = malloc(RESPBUFSZ * sizeof(respBuf));
+    
+    while(1){
+        recvMessage(clientSocket, responses, 1);
+        printf("%s", responses->buffer);
+        
+        if(strstr(responses->buffer, "PING") != NULL){
+            printf("replying to ping..\n");
+            if(sendMessage(clientSocket, "pong", 4) == 0)
+                return 1;
+        }
+        responses->buffer[0] = '\0';
+    }
+
+    return 0;
+}
+    
+//Join channels..
+extern int joinChannels(int *clientSocket, chanList *chans){
+    chanList *head = chans;
     while(head != NULL){
-        printf("Joining room: %s\n", head->roomName);
+        printf("Joining channel: %s\n", head->chanName);
 
         char *cmd = malloc(MAXLEN * sizeof(char));
-        snprintf(cmd, MAXLEN, "join #%s\n", head->roomName);
+        snprintf(cmd, MAXLEN, "join #%s\n", head->chanName);
 
         int rc = sendMessage(clientSocket, cmd, strlen(cmd));
         if(rc == 0)
@@ -28,7 +47,8 @@ extern int joinRooms(int *clientSocket, roomList *rooms){
 extern int spawnShell(int *clientSocket){
     //Loop stdin for issueing commands
     char *cmd = malloc(86 * sizeof(char));
-    respBuf *responses = malloc(5 * sizeof(respBuf));
+    respBuf *responses = malloc(RESPBUFSZ * sizeof(respBuf));
+    
     while(1){
         memset(cmd, 0, strlen(cmd));
         printf("> ");
@@ -46,7 +66,7 @@ extern int spawnShell(int *clientSocket){
             return 0;
         
         if(strstr(responses->buffer, "PING") != NULL){
-            printf("replying to ping..\n");
+            printf("Replying to ping..\n");
             rc = sendMessage(clientSocket, "pong", 4);
             if(rc == 0)
                 return 1;
@@ -64,8 +84,8 @@ extern int ircLogin(ircData *ircData, int *clientSocket){
     //Send a message and get response(s) irc
     int rc;
 
+    respBuf *responses = malloc(RESPBUFSZ * sizeof(respBuf));
 
-    respBuf *responses = malloc(5 * sizeof(respBuf));
     while(recvMessage(clientSocket, responses, 1)){
         printf("Server says %s", responses->buffer);
 

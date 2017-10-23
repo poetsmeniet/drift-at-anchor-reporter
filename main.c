@@ -29,18 +29,18 @@ int main(void){
         return 1;
     }
     
-    //test rooms linked list, todo: offload this to external file
-    roomList *rooms = malloc(sizeof(roomList));
-    memcpy(rooms->roomName, "geenbs\0", 7); 
-    rooms->next = malloc(sizeof(roomList));;
-    memcpy(rooms->next->roomName, "botroom\0", 8); 
-    rooms->next->next = '\0';
+    //test channels linked list, todo: offload this to external file
+    chanList *chans = malloc(sizeof(chanList));
+    memcpy(chans->chanName, "geenbs\0", 7); 
+    chans->next = malloc(sizeof(chanList));;
+    memcpy(chans->next->chanName, "botroom\0", 8); 
+    chans->next->next = '\0';
 
-    joinRooms(&clientSocket, rooms);
+    joinChannels(&clientSocket, chans);
 
-    //readIrc
+    parseResponses(&clientSocket);
     
-    spawnShell(&clientSocket);
+    //spawnShell(&clientSocket);
 
     close(clientSocket);
 

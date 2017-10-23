@@ -1,18 +1,18 @@
 #ifndef irclib_H_
 #define irclib_H_
 
-//The roomList linked list stores 1 or more rooms
-typedef struct roomList{
-    char roomName[100];
-    struct roomList *next;
-}roomList;
+//The chanList linked list stores 1 or more channels
+typedef struct chanList{
+    char chanName[100];
+    struct chanList *next;
+}chanList;
 
 //This struct stores initial data needed for login
-//and room entry
+//and channel entry
 typedef struct ircdata{
     char nick[100];
     char userName[100];
-    roomList *rooms;
+    chanList *chans;
 }ircData;
 
 //logs into connected irc server using specified data
@@ -22,8 +22,11 @@ extern int ircLogin(ircData *ircData, int *clientSocket);
 //- mainly for debugging
 extern int spawnShell(int *clientSocket);
 
-//Join rooms..
-extern int joinRooms(int *clientSocket, roomList *rooms);
+//Join channels..
+extern int joinChannels(int *clientSocket, chanList *chans);
+
+
+extern int parseResponses(int *clientSocket);
 
 #endif
 
