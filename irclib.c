@@ -14,9 +14,11 @@ extern int parseResponses(int *clientSocket){
         printf("%s", responses->buffer);
         
         if(strstr(responses->buffer, "PING") != NULL){
-            printf("replying to ping..\n");
-            if(sendMessage(clientSocket, "pong", 4) == 0)
+            printf("replying to ping.. ");
+            int rc = sendMessage(clientSocket, "pong\n", 5);
+            if(rc == 0)
                 return 1;
+            printf("rc = %d\n", rc);
         }
         responses->buffer[0] = '\0';
     }
@@ -26,14 +28,16 @@ extern int parseResponses(int *clientSocket){
     
 //Join channels..
 extern int joinChannels(int *clientSocket, chanList *chans){
+    int rc;
     chanList *head = chans;
+
     while(head != NULL){
         printf("Joining channel: %s\n", head->chanName);
 
         char *cmd = malloc(MAXLEN * sizeof(char));
         snprintf(cmd, MAXLEN, "join #%s\n", head->chanName);
 
-        int rc = sendMessage(clientSocket, cmd, strlen(cmd));
+        rc = sendMessage(clientSocket, cmd, strlen(cmd));
         if(rc == 0)
             return 1;
         head = head->next;
@@ -66,8 +70,8 @@ extern int spawnShell(int *clientSocket){
             return 0;
         
         if(strstr(responses->buffer, "PING") != NULL){
-            printf("Replying to ping..\n");
-            rc = sendMessage(clientSocket, "pong", 4);
+            printf("Replying to ping.. \n");
+            rc = sendMessage(clientSocket, "pong\n", 5);
             if(rc == 0)
                 return 1;
         }
@@ -116,8 +120,9 @@ extern int ircLogin(ircData *ircData, int *clientSocket){
         if(strstr(responses->buffer, "Nickname is already in us") != NULL)
             return 2;
         
-        responses->buffer[0] = '\0';
     }
+
+    free(responses);
 
     return 0;
 }
