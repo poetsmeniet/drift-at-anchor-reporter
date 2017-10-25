@@ -117,9 +117,11 @@ extern int ircLogin(ircData *ircData, int *clientSocket){
             //Send userName
             snprintf(req, MAXLEN, "USER %s 0 * :Test Bot\n", ircData->userName);
             rc = sendMessage(clientSocket, req, strlen(req));
+            free(req);
+
             if(rc == 0)
                 return 1;
-            memset(req,0,strlen(req));
+            
         }
         
         //End of login function success
