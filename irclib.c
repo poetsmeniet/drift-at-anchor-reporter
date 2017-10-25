@@ -10,11 +10,17 @@ extern int parseResponses(int *clientSocket){
     respBuf *responses = malloc(RESPBUFSZ * sizeof(respBuf));
     
     while(1){
-        recvMessage(clientSocket, responses, 1);
+        int rc = recvMessage(clientSocket, responses, 1);
+
+        if(rc == -2){
+            printf("TCP error?, quitting parseresponse\n");
+            return -2;
+        }
+
         printf("%s", responses->buffer);
         
         if(strstr(responses->buffer, "PING") != NULL){
-            printf("replying to ping.. ");
+            printf("replying to ping..");
             int rc = sendMessage(clientSocket, "pong\n", 5);
             if(rc == 0)
                 return 1;
@@ -23,18 +29,20 @@ extern int parseResponses(int *clientSocket){
         responses->buffer[0] = '\0';
     }
 
+    free(&responses->buffer[0]);
+    free(responses);
     return 0;
 }
     
 //Join channels..
 extern int joinChannels(int *clientSocket, chanList *chans){
     int rc;
+    char *cmd = malloc(MAXLEN * sizeof(char));
     chanList *head = chans;
 
     while(head != NULL){
         printf("Joining channel: %s\n", head->chanName);
 
-        char *cmd = malloc(MAXLEN * sizeof(char));
         snprintf(cmd, MAXLEN, "join #%s\n", head->chanName);
 
         rc = sendMessage(clientSocket, cmd, strlen(cmd));
@@ -42,7 +50,7 @@ extern int joinChannels(int *clientSocket, chanList *chans){
             return 1;
         head = head->next;
     }
-
+    free(cmd);
     return 0;
 }
 
@@ -80,6 +88,7 @@ extern int spawnShell(int *clientSocket){
         responses->buffer[0] = '\0';
     }
 
+    free(cmd);
     return 0;
 }
 
