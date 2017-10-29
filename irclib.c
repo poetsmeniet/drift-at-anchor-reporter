@@ -34,7 +34,7 @@ extern int getAllChannels(int *clientSocket, chanList *chans){
         //Parse data line by line
         char *line = strtok(responses->buffer, "\n");
         while(line != NULL){
-            printf("A line: %s\n", line);
+            printf("%d: A line: %s\n", testCnt, line);
             line = strtok(NULL, "\n");
         }
         testCnt++;
