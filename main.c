@@ -8,14 +8,17 @@
 int main(void){
 
     //Connect to server
-    char serverName[] = "geenbs.nl";
-    int serverPort =  6665;
+    //char serverName[] = "geenbs.nl";
+    //int serverPort =  6665;
+    char serverName[] = "irc.freenode.org";
+    int serverPort =  6667;
     int clientSocket = connectToServer(serverName, serverPort, 12);
 
     if(clientSocket == 0){
         printf("Connect failed with code %d\n", clientSocket);
         return 1;
     }
+    printf("Socket has nr %d\n", clientSocket);
 
     //Populate ircData struct
     ircData myData;
@@ -36,11 +39,13 @@ int main(void){
     memcpy(chans->next->chanName, "botroom\0", 8); 
     chans->next->next = '\0';
 
-    joinChannels(&clientSocket, chans);
+    getAllChannels(&clientSocket, chans);
 
-    parseResponses(&clientSocket);
+    //joinChannels(&clientSocket, chans);
+
+    //parseResponses(&clientSocket);
     
-    //spawnShell(&clientSocket);
+    spawnShell(&clientSocket);
 
     close(clientSocket);
 
