@@ -6,6 +6,45 @@
 #define MAXLEN 200
 #define RESPBUFSZ 5
 
+//Call "list" and store all channels into channel list
+extern int getAllChannels(int *clientSocket, chanList *chans){
+    //Call list command
+    printf("\n\n\nCalling 'list' - ");
+    int rc = sendMessage(clientSocket, "list\n", 5);
+    if(rc == 0)
+        return 1;
+    printf("rc = %d\n", rc);
+
+    //Get all response data until socket times out
+    respBuf *responses = malloc(RESPBUFSZ * sizeof(respBuf));
+
+    int testCnt = 0;
+
+    while(1){
+        int rc = recvMessage(clientSocket, responses, 1);
+
+        //No response data after socket timeout
+        if(rc == -1)
+            return 1;
+
+        //End of response data
+        if(strstr(responses->buffer, "End of /LIST") != NULL)
+            return 0;
+
+        //Parse data line by line
+        char *line = strtok(responses->buffer, "\n");
+        while(line != NULL){
+            printf("A line: %s\n", line);
+            line = strtok(NULL, "\n");
+        }
+        testCnt++;
+    }
+    free(&responses->buffer[0]);
+    free(responses);
+
+    return 0;
+}
+
 extern int parseResponses(int *clientSocket){
     respBuf *responses = malloc(RESPBUFSZ * sizeof(respBuf));
     
@@ -27,7 +66,7 @@ extern int parseResponses(int *clientSocket){
         
         //Automatic ping
         if(strstr(responses->buffer, "PING") != NULL){
-            printf("replying to ping..");
+            printf("Replying to ping..");
             int rc = sendMessage(clientSocket, "pong\n", 5);
             if(rc == 0)
                 return 1;
