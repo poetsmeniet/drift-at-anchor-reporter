@@ -25,8 +25,10 @@ extern int spawnShell(int *clientSocket);
 //Join channels..
 extern int joinChannels(int *clientSocket, chanList *chans);
 
-
+//Parse respones loop, add your own code here
 extern int parseResponses(int *clientSocket);
 
-#endif
+//Call "list" and store all channels into channel list
+extern int getAllChannels(int *clientSocket, chanList *chans);
 
+#endif
