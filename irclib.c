@@ -12,16 +12,34 @@ extern int parseResponses(int *clientSocket){
     while(1){
         int rc = recvMessage(clientSocket, responses, 1);
 
+        //No response data after socket timeout
+        if(rc == -1)
+            continue;
+
+        //Something whent horribly wrong..
         if(rc == -2){
             printf("TCP error?, quitting parseresponse\n");
             return -2;
         }
 
+        //Echo to stdout
         printf("%s", responses->buffer);
         
+        //Automatic ping
         if(strstr(responses->buffer, "PING") != NULL){
             printf("replying to ping..");
             int rc = sendMessage(clientSocket, "pong\n", 5);
+            if(rc == 0)
+                return 1;
+            printf("rc = %d\n", rc);
+        }
+        //Politeness
+        if(strstr(responses->buffer, "ello") != NULL\
+                || strstr(responses->buffer, "Hi") != NULL\
+                || strstr(responses->buffer, "hi") != 0\
+                ){
+            printf("Being polite..");
+            int rc = sendMessage(clientSocket, "PRIVMSG #geenbs :Hi!\n", 21);
             if(rc == 0)
                 return 1;
             printf("rc = %d\n", rc);
@@ -57,6 +75,7 @@ extern int joinChannels(int *clientSocket, chanList *chans){
 //Spawns interactive session to IRC server
 //- mainly for debugging
 extern int spawnShell(int *clientSocket){
+    printf("Spawning shell..\n");
     //Loop stdin for issueing commands
     char *cmd = malloc(86 * sizeof(char));
     respBuf *responses = malloc(RESPBUFSZ * sizeof(respBuf));
