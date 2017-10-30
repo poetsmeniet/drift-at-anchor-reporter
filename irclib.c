@@ -34,12 +34,30 @@ extern int getAllChannels(int *clientSocket, chanList *chans){
         //Parse data line by line
         char *line = strtok(responses->buffer, "\n");
         while(line != NULL){
-            printf("%d: A line: %s\n", testCnt, line);
+            //Tokenise using whitespace to extract channgel name
+            char *token = strtok(line, " ");
+            int tokCnt = 0;
+            while(token != NULL){
+                if(tokCnt == 3 && token[0] == '#'){
+                    printf("%d: Channel: %s\n", testCnt, token);
+
+                    //Add to channel struct
+                    memcpy(chans->chanName, token, strlen(token)); 
+                    chans->next = malloc(sizeof(chanList));;
+                    chans->next->next = NULL;
+                    chans = chans->next;
+
+                    testCnt++;
+                }
+                token = strtok(NULL, " ");
+                tokCnt++;
+            }
+
             line = strtok(NULL, "\n");
         }
-        testCnt++;
+        free(responses->buffer);
     }
-    free(&responses->buffer[0]);
+
     free(responses);
 
     return 0;
@@ -72,6 +90,8 @@ extern int parseResponses(int *clientSocket){
                 return 1;
             printf("rc = %d\n", rc);
         }
+        
+        /*
         //Politeness
         if(strstr(responses->buffer, "ello") != NULL\
                 || strstr(responses->buffer, "Hi") != NULL\
@@ -83,10 +103,11 @@ extern int parseResponses(int *clientSocket){
                 return 1;
             printf("rc = %d\n", rc);
         }
+        */
         responses->buffer[0] = '\0';
     }
 
-    free(&responses->buffer[0]);
+    free(responses->buffer);
     free(responses);
     return 0;
 }
@@ -97,15 +118,16 @@ extern int joinChannels(int *clientSocket, chanList *chans){
     char *cmd = malloc(MAXLEN * sizeof(char));
     chanList *head = chans;
 
-    while(head != NULL){
+    while(head->next != NULL){
         printf("Joining channel: %s\n", head->chanName);
 
-        snprintf(cmd, MAXLEN, "join #%s\n", head->chanName);
+        snprintf(cmd, MAXLEN, "join %s\n", head->chanName);
 
         rc = sendMessage(clientSocket, cmd, strlen(cmd));
         if(rc == 0)
             return 1;
         head = head->next;
+        sleep(1);
     }
     free(cmd);
     return 0;
@@ -161,7 +183,7 @@ extern int ircLogin(ircData *ircData, int *clientSocket){
         printf("Server says %s", responses->buffer);
 
         //Respond to Checking Ident by sending login data
-        if(strstr(responses->buffer, "Checking Ident") != NULL){
+        if(strstr(responses->buffer, "Checking") != NULL){
             printf("Logging in as '%s' len=%d..\n", ircData->nick, strlen(ircData->nick));
             char *req = malloc(MAXLEN * sizeof(char));
 
@@ -188,9 +210,9 @@ extern int ircLogin(ircData *ircData, int *clientSocket){
 
         if(strstr(responses->buffer, "Nickname is already in us") != NULL)
             return 2;
-        
     }
 
+    free(responses->buffer);
     free(responses);
 
     return 0;
