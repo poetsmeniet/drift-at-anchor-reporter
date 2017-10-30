@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <unistd.h>
 #include <string.h>
 #include <stdlib.h>
 #include "tcp_client.h"
@@ -9,7 +10,7 @@
 //Call "list" and store all channels into channel list
 extern int getAllChannels(int *clientSocket, chanList *chans){
     //Call list command
-    printf("\n\n\nCalling 'list' - ");
+    printf("\nRequesting channel list - ");
     int rc = sendMessage(clientSocket, "list\n", 5);
     if(rc == 0)
         return 1;
@@ -18,7 +19,7 @@ extern int getAllChannels(int *clientSocket, chanList *chans){
     //Get all response data until socket times out
     respBuf *responses = malloc(RESPBUFSZ * sizeof(respBuf));
 
-    int testCnt = 0;
+    int chanCnt = 0;
 
     while(1){
         int rc = recvMessage(clientSocket, responses, 1);
@@ -28,8 +29,15 @@ extern int getAllChannels(int *clientSocket, chanList *chans){
             return 1;
 
         //End of response data
-        if(strstr(responses->buffer, "End of /LIST") != NULL)
+        if(strstr(responses->buffer, "End of /LIST") != NULL){
+            if(chanCnt == 0){
+                printf(".. Found %d channels, recalling list in 2 secs..\n", chanCnt);
+                sleep(2);
+                getAllChannels(clientSocket, chans);
+            }
+
             return 0;
+        }
 
         //Parse data line by line
         char *line = strtok(responses->buffer, "\n");
@@ -39,16 +47,19 @@ extern int getAllChannels(int *clientSocket, chanList *chans){
             int tokCnt = 0;
             while(token != NULL){
                 if(tokCnt == 3 && token[0] == '#'){
-                    printf("%d: Channel: %s\n", testCnt, token);
+                    printf("%d: Channel: %s\n", chanCnt, token);
 
                     //Add to channel struct
-                    memcpy(chans->chanName, token, strlen(token)); 
+                    size_t len = strlen(token);
+                    memcpy(chans->chanName, token, len); 
+                    chans->chanName[len] = '\0';
                     chans->next = malloc(sizeof(chanList));;
                     chans->next->next = NULL;
                     chans = chans->next;
 
-                    testCnt++;
+                    chanCnt++;
                 }
+
                 token = strtok(NULL, " ");
                 tokCnt++;
             }
@@ -114,9 +125,10 @@ extern int parseResponses(int *clientSocket){
     
 //Join channels..
 extern int joinChannels(int *clientSocket, chanList *chans){
-    int rc;
+    respBuf *responses = malloc(RESPBUFSZ * sizeof(respBuf));
     char *cmd = malloc(MAXLEN * sizeof(char));
     chanList *head = chans;
+    int rc;
 
     while(head->next != NULL){
         printf("Joining channel: %s\n", head->chanName);
@@ -126,9 +138,19 @@ extern int joinChannels(int *clientSocket, chanList *chans){
         rc = sendMessage(clientSocket, cmd, strlen(cmd));
         if(rc == 0)
             return 1;
+        
+        while(recvMessage(clientSocket, responses, 1) != -1){
+            printf("\tServer: %s", responses->buffer);
+            //End of response data
+            if(strstr(responses->buffer, "End of /NAMES list") != NULL)
+                break;
+        }
+
+        free(responses->buffer);
+
         head = head->next;
-        sleep(1);
     }
+    free(responses);
     free(cmd);
     return 0;
 }
@@ -183,7 +205,8 @@ extern int ircLogin(ircData *ircData, int *clientSocket){
         printf("Server says %s", responses->buffer);
 
         //Respond to Checking Ident by sending login data
-        if(strstr(responses->buffer, "Checking") != NULL){
+        if(strstr(responses->buffer, "Checking") != NULL\
+                || strstr(responses->buffer, "Looking up") != NULL){
             printf("Logging in as '%s' len=%d..\n", ircData->nick, strlen(ircData->nick));
             char *req = malloc(MAXLEN * sizeof(char));
 
