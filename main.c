@@ -34,18 +34,14 @@ int main(void){
     
     //test channels linked list, todo: offload this to external file
     chanList *chans = malloc(sizeof(chanList));
-    memcpy(chans->chanName, "geenbs\0", 7); 
-    chans->next = malloc(sizeof(chanList));;
-    memcpy(chans->next->chanName, "botroom\0", 8); 
-    chans->next->next = '\0';
 
     getAllChannels(&clientSocket, chans);
 
-    //joinChannels(&clientSocket, chans);
+    joinChannels(&clientSocket, chans);
 
-    //parseResponses(&clientSocket);
+    parseResponses(&clientSocket);
     
-    spawnShell(&clientSocket);
+    //spawnShell(&clientSocket);
 
     close(clientSocket);
 
