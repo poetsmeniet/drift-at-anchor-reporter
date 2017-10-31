@@ -16,27 +16,18 @@ extern int getAllChannels(int *clientSocket, chanList *chans){
         return 1;
     printf("rc = %d\n", rc);
 
-    //Get all response data until socket times out
     respBuf *responses = malloc(RESPBUFSZ * sizeof(respBuf));
 
     int chanCnt = 0;
 
+    //Get all response data until socket times out
     while(1){
         int rc = recvMessage(clientSocket, responses, 1);
 
         //No response data after socket timeout
-        if(rc == -1)
+        if(rc == -1){
+            free(responses);
             return 1;
-
-        //End of response data
-        if(strstr(responses->buffer, "End of /LIST") != NULL){
-            if(chanCnt == 0){
-                printf(".. Found %d channels, recalling list in 2 secs..\n", chanCnt);
-                sleep(2);
-                getAllChannels(clientSocket, chans);
-            }
-
-            return 0;
         }
 
         //Parse data line by line
@@ -47,10 +38,10 @@ extern int getAllChannels(int *clientSocket, chanList *chans){
             int tokCnt = 0;
             while(token != NULL){
                 if(tokCnt == 3 && token[0] == '#'){
-                    printf("%d: Channel: %s\n", chanCnt, token);
 
                     //Add to channel struct
                     size_t len = strlen(token);
+                    printf("%d: Channel: %s, len = %d\n", chanCnt, token, len);
                     memcpy(chans->chanName, token, len); 
                     chans->chanName[len] = '\0';
                     chans->next = malloc(sizeof(chanList));;
@@ -66,10 +57,19 @@ extern int getAllChannels(int *clientSocket, chanList *chans){
 
             line = strtok(NULL, "\n");
         }
+
         free(responses->buffer);
     }
 
-    free(responses);
+        //End of response data
+        if(strstr(responses->buffer, "End of /LIST") != NULL){
+            if(chanCnt == 0){
+                printf("Found %d channels..\n", chanCnt);
+                free(responses->buffer);
+                free(responses);
+                return -2;
+            }
+        }
 
     return 0;
 }
@@ -81,24 +81,30 @@ extern int parseResponses(int *clientSocket){
         int rc = recvMessage(clientSocket, responses, 1);
 
         //No response data after socket timeout
-        if(rc == -1)
+        if(rc == -1){
             continue;
+        }
 
         //Something whent horribly wrong..
         if(rc == -2){
             printf("TCP error?, quitting parseresponse\n");
+            free(responses);
+            free(responses->buffer);
             return -2;
         }
 
         //Echo to stdout
-        printf("%s", responses->buffer);
+        printf("Server: %s", responses->buffer);
         
         //Automatic ping
         if(strstr(responses->buffer, "PING") != NULL){
-            printf("Replying to ping..");
+            printf("\tReplying to ping..");
             int rc = sendMessage(clientSocket, "pong\n", 5);
-            if(rc == 0)
+            if(rc == 0){
+                free(responses);
+                free(responses->buffer);
                 return 1;
+            }
             printf("rc = %d\n", rc);
         }
         
@@ -125,9 +131,15 @@ extern int parseResponses(int *clientSocket){
     
 //Join channels..
 extern int joinChannels(int *clientSocket, chanList *chans){
-    respBuf *responses = malloc(RESPBUFSZ * sizeof(respBuf));
-    char *cmd = malloc(MAXLEN * sizeof(char));
     chanList *head = chans;
+
+    if(head->next == NULL){
+        printf("\tNo channels to join\n");
+        return 1;
+    }
+
+    respBuf *responses = malloc(RESPBUFSZ * sizeof(respBuf));
+    char cmd[86];
     int rc;
 
     while(head->next != NULL){
@@ -136,22 +148,26 @@ extern int joinChannels(int *clientSocket, chanList *chans){
         snprintf(cmd, MAXLEN, "join %s\n", head->chanName);
 
         rc = sendMessage(clientSocket, cmd, strlen(cmd));
-        if(rc == 0)
+        if(rc == 0){
+            free(responses);
             return 1;
+        }
         
         while(recvMessage(clientSocket, responses, 1) != -1){
-            printf("\tServer: %s", responses->buffer);
+            printf("Server: %s", responses->buffer);
+
             //End of response data
-            if(strstr(responses->buffer, "End of /NAMES list") != NULL)
+            if(strstr(responses->buffer, "End of /NAMES list") != NULL){
+                free(responses->buffer);
                 break;
+            }
+            free(responses->buffer);
         }
 
-        free(responses->buffer);
-
         head = head->next;
-    }
+    } 
+    
     free(responses);
-    free(cmd);
     return 0;
 }
 
@@ -159,8 +175,9 @@ extern int joinChannels(int *clientSocket, chanList *chans){
 //- mainly for debugging
 extern int spawnShell(int *clientSocket){
     printf("Spawning shell..\n");
+
     //Loop stdin for issueing commands
-    char *cmd = malloc(86 * sizeof(char));
+    char cmd[86] = "Placeholder";
     respBuf *responses = malloc(RESPBUFSZ * sizeof(respBuf));
     
     while(1){
@@ -169,28 +186,37 @@ extern int spawnShell(int *clientSocket){
         fgets(cmd, MAXLEN, stdin);
         
         int rc = sendMessage(clientSocket, cmd, strlen(cmd));
-        if(rc == 0)
+        if(rc == 0){
+            free(responses);
             return 1;
+        }
         
         recvMessage(clientSocket, responses, 1);
         printf("%s", responses->buffer);
 
         if(strstr(responses->buffer, "Quit") != NULL &&\
-                strncmp(cmd, "quit", 4) == 0)
+                strncmp(cmd, "quit", 4) == 0){
+            free(responses->buffer);
+            free(responses);
             return 0;
+        }
         
         if(strstr(responses->buffer, "PING") != NULL){
             printf("Replying to ping.. \n");
             rc = sendMessage(clientSocket, "pong\n", 5);
-            if(rc == 0)
+            if(rc == 0){
+                free(responses);
+                free(responses->buffer);
                 return 1;
+            }
         }
 
         memset(cmd, 0, strlen(cmd));
-        responses->buffer[0] = '\0';
+        free(responses->buffer);
     }
-
-    free(cmd);
+    
+    free(responses);
+    free(responses->buffer);
     return 0;
 }
 
@@ -202,41 +228,50 @@ extern int ircLogin(ircData *ircData, int *clientSocket){
     respBuf *responses = malloc(RESPBUFSZ * sizeof(respBuf));
 
     while(recvMessage(clientSocket, responses, 1)){
-        printf("Server says %s", responses->buffer);
-
-        //Respond to Checking Ident by sending login data
-        if(strstr(responses->buffer, "Checking") != NULL\
+        printf("Server: %s", responses->buffer);
+        
+        //End of login function success
+        if(strstr(responses->buffer, " MODE ") != NULL){
+            free(responses->buffer);
+            free(responses);
+            return 0;
+        }else if(strstr(responses->buffer, "Nickname is already in us") != NULL){
+            printf("\tDetected NICK in use\n");
+            free(responses->buffer);
+            free(responses);
+            return 2;
+        }else if(strstr(responses->buffer, "Checking") != NULL\
                 || strstr(responses->buffer, "Looking up") != NULL){
-            printf("Logging in as '%s' len=%d..\n", ircData->nick, strlen(ircData->nick));
-            char *req = malloc(MAXLEN * sizeof(char));
+            //Respond to Checking Ident by sending login data
+            printf("\tLogging in as '%s' len=%d..\n", ircData->nick, strlen(ircData->nick));
+            char req[86];
 
             //Send Nick
             snprintf(req, MAXLEN, "NICK %s\n", ircData->nick);
             rc = sendMessage(clientSocket, req, strlen(req));
-            if(rc == 0)
+            if(rc == 0){
+                free(responses->buffer);
+                free(responses);
                 return 1;
+            }
+
             memset(req,0,strlen(req));
 
             //Send userName
             snprintf(req, MAXLEN, "USER %s 0 * :Test Bot\n", ircData->userName);
             rc = sendMessage(clientSocket, req, strlen(req));
-            free(req);
 
-            if(rc == 0)
+            if(rc == 0){
+                free(responses->buffer);
+                free(responses);
                 return 1;
-            
+            }
+            free(responses->buffer);
+        }else{
+            //Nothing, just loop
+            free(responses->buffer);
         }
-        
-        //End of login function success
-        if(strstr(responses->buffer, " MODE ") != NULL)
-            return 0;
-
-        if(strstr(responses->buffer, "Nickname is already in us") != NULL)
-            return 2;
     }
-
-    free(responses->buffer);
-    free(responses);
 
     return 0;
 }
