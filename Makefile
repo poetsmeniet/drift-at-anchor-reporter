@@ -1,6 +1,6 @@
 NAME = test_client
 
-CODE_FILES = main.c tcp_client.c irclib.c
+CODE_FILES = main.c tcp_client.c irclib.c config.c
 
 DOC_FILES = docs
 DEBUG = YES
