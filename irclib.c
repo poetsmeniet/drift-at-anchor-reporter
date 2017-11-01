@@ -3,6 +3,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include "tcp_client.h"
+#include "config.h"
 #include "irclib.h"
 #define MAXLEN 200
 #define RESPBUFSZ 5
@@ -10,12 +11,11 @@
 //Call "list" and store all channels into channel list
 extern int getAllChannels(int *clientSocket, chanList *chans){
     //Call list command
-    printf("\nRequesting channel list - ");
     int rc = sendMessage(clientSocket, "list\n", 5);
+
     if(rc == 0)
         return 1;
-    printf("rc = %d\n", rc);
-
+    
     respBuf *responses = malloc(RESPBUFSZ * sizeof(respBuf));
 
     int chanCnt = 0;
@@ -221,7 +221,7 @@ extern int spawnShell(int *clientSocket){
 }
 
 //logs into connected irc server using specified data
-extern int ircLogin(ircData *ircData, int *clientSocket){
+extern int ircLogin(appConfig *ircData, int *clientSocket){
     //Send a message and get response(s) irc
     int rc;
 
@@ -240,8 +240,7 @@ extern int ircLogin(ircData *ircData, int *clientSocket){
             free(responses->buffer);
             free(responses);
             return 2;
-        }else if(strstr(responses->buffer, "Checking") != NULL\
-                || strstr(responses->buffer, "Looking up") != NULL){
+        }else if(strstr(responses->buffer, "Looking up") != NULL){
             //Respond to Checking Ident by sending login data
             printf("\tLogging in as '%s' len=%d..\n", ircData->nick, strlen(ircData->nick));
             char req[86];

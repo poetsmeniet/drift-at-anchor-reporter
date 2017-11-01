@@ -10,13 +10,11 @@ typedef struct chanList{
 //This struct stores initial data needed for login
 //and channel entry
 typedef struct ircdata{
-    char nick[100];
-    char userName[100];
     chanList *chans;
 }ircData;
 
 //logs into connected irc server using specified data
-extern int ircLogin(ircData *ircData, int *clientSocket);
+extern int ircLogin(appConfig *ircData, int *clientSocket);
 
 //Spawns interactive session to IRC server
 //- mainly for debugging
