@@ -9,6 +9,8 @@
 #define MAXLEN 200
 #define RESPBUFSZ 5
 
+/* Automated replies, triggered by regex
+ * returns: nr of replies found in file */
 extern int retrieveAutomatedReplies(aR *replies, char *fileName){
     FILE *fp;
     int lineNr = 0;
@@ -25,7 +27,7 @@ extern int retrieveAutomatedReplies(aR *replies, char *fileName){
             size_t valLen = strlen(reply);
             if(keyLen > MAXLEN || valLen > MAXLEN){
                printf("\nSorry, maximum length of key value exceeded (%d)\n", MAXLEN);
-               return 1;
+               return 0;
             }
 
             //Check length of strings and store
@@ -37,15 +39,19 @@ extern int retrieveAutomatedReplies(aR *replies, char *fileName){
                 //printf("'%s' stored result in reply '%s'\n", replies[lineNr].regex, replies[lineNr].reply);
                 lineNr++;
             }
-            //Terminate this array
-            memcpy(replies[lineNr].regex, "EOA\0", 4);
         }
 
     }else{
         printf("Unable to open '%s' for reading. Not loading automated responses\n", fileName);
+        memcpy(replies[lineNr].regex, "EOA\0", 4);
+        return 0;
     }
+
+    //Terminate this array
+    memcpy(replies[lineNr].regex, "EOA\0", 4);
     fclose(fp);
-    return 0;
+
+    return lineNr;;
 }
 
 //Call "list" and store all channels into channel list
