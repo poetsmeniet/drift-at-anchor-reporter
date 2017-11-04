@@ -16,8 +16,8 @@ extern int countLines(char *fileName){
         while (fgets(line, sizeof(line), fp)) {
             lineCnt++;
         }
+        fclose(fp);
     }
-    fclose(fp);
     return lineCnt;
 }
 
