@@ -5,33 +5,19 @@
 #include "tcp_client.h"
 #include "config.h"
 #include "irclib.h"
+#include "generic_unix_tools.h"
 
-void freeLinkedList(chanList *targetList){
-    if(targetList->next == NULL){
-        free(targetList);
-    }else{
-        chanList *head = targetList;
-        chanList *curr;
-        while ((curr = head) != NULL) { // set curr to head, stop if list empty.
-            head = head->next;          // advance head to next element.
-            free (curr);                // delete saved pointer.
-        }
-    }
-    printf("Done freeing targetList\n");
-}
+extern void freeLinkedList(chanList *targetList);
 
 int main(void){
+    printf("Retrieving automated responses...\n");
+    aR *replies;
+    retrieveAutomatedReplies(replies, "replies.txt");
+    //return 0;
 
     appConfig config;
     getConfig(&config, "config.txt"); //Offload this later as parameter
 
-    //Connect to server
-    //char serverName[] = "germany.enterthegame.com";
-    //int serverPort =  6665;
-    //char serverName[] = "geenbs.nl";
-    //int serverPort =  6665;
-    //char serverName[] = "irc.freenode.org";
-    //int serverPort =  6667;
     int clientSocket = connectToServer(config.serverName, config.serverPort, 12);
 
     if(clientSocket == 0){
@@ -50,18 +36,21 @@ int main(void){
     //test channels linked list, todo: offload this to external file
     chanList *chans = malloc(sizeof(chanList));
 
-    printf("\nRequesting channel list - ");
+    printf("\nRequesting all channels...\n");
     if(getAllChannels(&clientSocket, chans) == -2){
         printf("Recall getallchans..\n");
-        getAllChannels(&clientSocket, chans);
+        rc = getAllChannels(&clientSocket, chans);
     }
+    if(rc == 0)
+        rc = joinChannels(&clientSocket, chans);
 
-    rc = joinChannels(&clientSocket, chans);
 
-    printf("Starting parseResponses..\n");
-    parseResponses(&clientSocket);
+
+
+    //printf("Starting parseResponses..\n");
+    //parseResponses(&clientSocket);
     
-    //spawnShell(&clientSocket);
+    spawnShell(&clientSocket);
 
     close(clientSocket);
 
@@ -70,5 +59,23 @@ int main(void){
     else
         free(chans);
 
+    //Dont forget to free replies
+
     return 0;
+}
+
+//Free a linked list
+extern void freeLinkedList(chanList *targetList){
+    
+    if(targetList->next == NULL){
+        free(targetList);
+    }else{
+        chanList *head = targetList;
+        chanList *curr;
+        while ((curr = head) != NULL) { // set curr to head, stop if list empty.
+            head = head->next;          // advance head to next element.
+            free (curr);                // delete saved pointer.
+        }
+    }
+    printf("Done freeing targetList\n");
 }
