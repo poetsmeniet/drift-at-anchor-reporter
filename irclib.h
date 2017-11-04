@@ -1,5 +1,7 @@
 #ifndef irclib_H_
 #define irclib_H_
+#define MAXREGEXSZ 200
+#define MAXREPLYSZ 500
 
 //The chanList linked list stores 1 or more channels
 typedef struct chanList{
@@ -7,6 +9,12 @@ typedef struct chanList{
     struct chanList *next;
 }chanList;
 
+typedef struct automaticReplies{
+    char regex[MAXREGEXSZ]; //This regex match will trigger reply
+    char reply[MAXREPLYSZ]; //Reply body
+}aR;
+
+//DEPRE:
 //This struct stores initial data needed for login
 //and channel entry
 typedef struct ircdata{
@@ -29,4 +37,6 @@ extern int parseResponses(int *clientSocket);
 //Call "list" and store all channels into channel list
 extern int getAllChannels(int *clientSocket, chanList *chans);
 
+//Retrieves all automated responses, including regex triggers
+extern int retrieveAutomatedReplies(aR *replies, char *fileName);
 #endif

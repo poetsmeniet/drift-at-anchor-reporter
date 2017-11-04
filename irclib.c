@@ -5,8 +5,48 @@
 #include "tcp_client.h"
 #include "config.h"
 #include "irclib.h"
+#include "generic_unix_tools.h"
 #define MAXLEN 200
 #define RESPBUFSZ 5
+
+extern int retrieveAutomatedReplies(aR *replies, char *fileName){
+    FILE *fp;
+    int lineNr = 0;
+    int lineCnt = countLines(fileName);
+    replies = malloc(lineCnt * sizeof(aR));
+    printf("We have %d replies\n", lineCnt);
+    fp = fopen(fileName, "r");
+
+    if(fp != NULL){
+        while(!feof(fp)){
+            char regex[MAXLEN];
+            char reply[MAXLEN];
+
+            fscanf(fp, "%s %99[^\n]\n", &regex[0], reply);
+
+            size_t keyLen = strlen(regex) + 1;
+            size_t valLen = strlen(reply) + 1;
+            if(keyLen > MAXLEN || valLen > MAXLEN){
+               printf("\nSorry, maximum length of key value exceeded (%d)\n", MAXLEN);
+               return 1;
+            }
+
+            //Check length of strings
+            if(strlen(regex) > 0 && strlen(reply) > 0){
+                printf("'%s' (%d) should result in reply '%s'(%d)\n", regex, strlen(regex), reply, strlen(reply));
+                memcpy(replies[lineNr].regex, regex, strlen(regex));
+                memcpy(replies[lineNr].reply, reply, strlen(reply));
+                printf("'%s' stored result in reply '%s'\n", replies[lineNr].regex, replies[lineNr].reply);
+            }
+            lineNr++;
+
+        }
+    }else{
+        printf("Unable to open '%s' for reading. Not loading automated responses\n", fileName);
+    }
+    fclose(fp);
+    return 0;
+}
 
 //Call "list" and store all channels into channel list
 extern int getAllChannels(int *clientSocket, chanList *chans){
@@ -23,15 +63,18 @@ extern int getAllChannels(int *clientSocket, chanList *chans){
     //Get all response data until socket times out
     while(1){
         int rc = recvMessage(clientSocket, responses, 1);
-
+        
         //No response data after socket timeout
         if(rc == -1){
             free(responses);
             return 1;
         }
 
+        char respCpy[MAXLEN];
+        memcpy(respCpy, responses->buffer, strlen(responses->buffer));
+
         //Parse data line by line
-        char *line = strtok(responses->buffer, "\n");
+        char *line = strtok(respCpy, "\n");
         while(line != NULL){
             //Tokenise using whitespace to extract channgel name
             char *token = strtok(line, " ");
@@ -54,22 +97,22 @@ extern int getAllChannels(int *clientSocket, chanList *chans){
                 token = strtok(NULL, " ");
                 tokCnt++;
             }
-
-            line = strtok(NULL, "\n");
-        }
-
-        free(responses->buffer);
-    }
-
-        //End of response data
-        if(strstr(responses->buffer, "End of /LIST") != NULL){
-            if(chanCnt == 0){
-                printf("Found %d channels..\n", chanCnt);
-                free(responses->buffer);
-                free(responses);
-                return -2;
+        
+            //End of response data
+            if(strstr(responses->buffer, "End of /LIST") != NULL){
+                if(chanCnt == 0){
+                    printf("Found %d channels..\n", chanCnt);
+                    free(responses->buffer);
+                    free(responses);
+                    return -2;
+                }
             }
+            
+            line = strtok(NULL, "\n");
+
+            free(responses->buffer);
         }
+    }
 
     return 0;
 }
@@ -133,7 +176,7 @@ extern int parseResponses(int *clientSocket){
 extern int joinChannels(int *clientSocket, chanList *chans){
     chanList *head = chans;
 
-    if(head->next == NULL){
+    if(head == NULL){
         printf("\tNo channels to join\n");
         return 1;
     }
