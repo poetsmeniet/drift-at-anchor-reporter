@@ -12,9 +12,6 @@
 extern int retrieveAutomatedReplies(aR *replies, char *fileName){
     FILE *fp;
     int lineNr = 0;
-    int lineCnt = countLines(fileName);
-    replies = malloc(lineCnt * sizeof(aR));
-    printf("We have %d replies\n", lineCnt);
     fp = fopen(fileName, "r");
 
     if(fp != NULL){
@@ -24,23 +21,26 @@ extern int retrieveAutomatedReplies(aR *replies, char *fileName){
 
             fscanf(fp, "%s %99[^\n]\n", &regex[0], reply);
 
-            size_t keyLen = strlen(regex) + 1;
-            size_t valLen = strlen(reply) + 1;
+            size_t keyLen = strlen(regex);
+            size_t valLen = strlen(reply);
             if(keyLen > MAXLEN || valLen > MAXLEN){
                printf("\nSorry, maximum length of key value exceeded (%d)\n", MAXLEN);
                return 1;
             }
 
-            //Check length of strings
+            //Check length of strings and store
             if(strlen(regex) > 0 && strlen(reply) > 0){
-                printf("'%s' (%d) should result in reply '%s'(%d)\n", regex, strlen(regex), reply, strlen(reply));
                 memcpy(replies[lineNr].regex, regex, strlen(regex));
+                replies[lineNr].regex[keyLen] = '\0';
                 memcpy(replies[lineNr].reply, reply, strlen(reply));
-                printf("'%s' stored result in reply '%s'\n", replies[lineNr].regex, replies[lineNr].reply);
+                replies[lineNr].reply[valLen] = '\0';
+                //printf("'%s' stored result in reply '%s'\n", replies[lineNr].regex, replies[lineNr].reply);
+                lineNr++;
             }
-            lineNr++;
-
+            //Terminate this array
+            memcpy(replies[lineNr].regex, "EOA\0", 4);
         }
+
     }else{
         printf("Unable to open '%s' for reading. Not loading automated responses\n", fileName);
     }
@@ -117,7 +117,7 @@ extern int getAllChannels(int *clientSocket, chanList *chans){
     return 0;
 }
 
-extern int parseResponses(int *clientSocket){
+extern int parseResponses(int *clientSocket, aR *replies){
     respBuf *responses = malloc(RESPBUFSZ * sizeof(respBuf));
     
     while(1){
@@ -151,19 +151,15 @@ extern int parseResponses(int *clientSocket){
             printf("rc = %d\n", rc);
         }
         
-        /*
-        //Politeness
-        if(strstr(responses->buffer, "ello") != NULL\
-                || strstr(responses->buffer, "Hi") != NULL\
-                || strstr(responses->buffer, "hi") != 0\
-                ){
-            printf("Being polite..");
-            int rc = sendMessage(clientSocket, "PRIVMSG #geenbs :Hi!\n", 21);
-            if(rc == 0)
-                return 1;
-            printf("rc = %d\n", rc);
+        //Check all automated responses and reply accordingly
+        int cnt = 0;
+        while(bcmp(replies[cnt].regex, "EOA\0", 4) != 0){
+            if(regexMatch(replies[cnt].regex, responses->buffer) == 0){
+                printf("\twe matched! reply with '%s'\n", replies[cnt].reply);
+            }
+            cnt++;
         }
-        */
+        
         responses->buffer[0] = '\0';
     }
 
