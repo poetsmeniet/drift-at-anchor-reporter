@@ -11,9 +11,11 @@ extern void freeLinkedList(chanList *targetList);
 
 int main(void){
     printf("Retrieving automated responses...\n");
-    aR *replies;
+    
+    //Parameterize this filename
+    int lineCnt = countLines("replies.txt");
+    aR replies[lineCnt];
     retrieveAutomatedReplies(replies, "replies.txt");
-    //return 0;
 
     appConfig config;
     getConfig(&config, "config.txt"); //Offload this later as parameter
@@ -47,10 +49,10 @@ int main(void){
 
 
 
-    //printf("Starting parseResponses..\n");
-    //parseResponses(&clientSocket);
+    printf("Starting parseResponses..\n");
+    parseResponses(&clientSocket, replies);
     
-    spawnShell(&clientSocket);
+    //spawnShell(&clientSocket);
 
     close(clientSocket);
 
