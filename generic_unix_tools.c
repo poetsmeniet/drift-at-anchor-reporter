@@ -33,18 +33,20 @@ extern int regexMatch(char *regex, char *string){
 
     //Compile regex, case insensitive
     int rc = regcomp(&preg, regex, REG_ICASE);
-    if(rc != 0)
+    if(rc != 0){
         printf("Regex compilation failed, rc = %d\n", rc);
+        return 1;
+    }
 
     int nmatch = 0;
     regmatch_t *pmatch = NULL;
     rc = regexec(&preg, string, nmatch, pmatch, 0);
 
     if(rc == 0){
-        printf("Match found, regexec returns %d, nmatch: %d\n", rc, nmatch);
+        //printf("Match found, regexec returns %d, nmatch: %d\n", rc, nmatch);
         return 0;
     }else{
-        printf("Match not found, regexec returns %d, nmatch: %d\n", rc, nmatch);
+        //printf("Match not found, regexec returns %d, nmatch: %d\n", rc, nmatch);
         return 1;
     }
     return 1;
