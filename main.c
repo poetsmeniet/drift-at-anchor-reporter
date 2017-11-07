@@ -14,11 +14,15 @@ int main(void){
     
     //Parameterize this filename
     int lineCnt = countLines("replies.txt");
-    aR replies[lineCnt];
+    aR replies[lineCnt + 1];
     retrieveAutomatedReplies(replies, "replies.txt");
 
+    //Retreive configuration parameters
     appConfig config;
-    getConfig(&config, "config.txt"); //Offload this later as parameter
+    if(getConfig(&config, "config.txt") == 1){ //Offload this later as parameter
+        printf("Loading of config failed, file '%s'\n", "config.txt");
+        return 1;
+    }
 
     int clientSocket = connectToServer(config.serverName, config.serverPort, 12);
 
@@ -45,9 +49,6 @@ int main(void){
     }
     if(rc == 0)
         rc = joinChannels(&clientSocket, chans);
-
-
-
 
     printf("Starting parseResponses..\n");
     parseResponses(&clientSocket, replies);
