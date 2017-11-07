@@ -40,7 +40,6 @@ extern int retrieveAutomatedReplies(aR *replies, char *fileName){
                 lineNr++;
             }
         }
-
     }else{
         printf("Unable to open '%s' for reading. Not loading automated responses\n", fileName);
         memcpy(replies[lineNr].regex, "EOA\0", 4);
@@ -161,6 +160,9 @@ extern int parseResponses(int *clientSocket, aR *replies){
         int cnt = 0;
         while(bcmp(replies[cnt].regex, "EOA\0", 4) != 0){
             if(regexMatch(replies[cnt].regex, responses->buffer) == 0){
+                //Is this a private or channel message?
+                //
+                //Respond to private/channel msg?
                 printf("\twe matched! reply with '%s'\n", replies[cnt].reply);
             }
             cnt++;
