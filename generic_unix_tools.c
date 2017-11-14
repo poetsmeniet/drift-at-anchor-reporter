@@ -5,6 +5,24 @@
 #include <sys/types.h>
 #include "generic_unix_tools.h"
 
+/*Free a linked list
+ * Will work if the "genL" struct type matches your struct in size 
+ * Customize if needed or adjust genL struct */
+extern void freeLinkedListGen(void* targetList){
+    genL *tL = (genL *)targetList; //Explicit
+
+    if(tL->next == NULL){ //Only one node, the first
+        free(tL);
+    }else{
+        genL *head = tL;
+        genL *curr;
+        while ((curr = head) != NULL) { //Set curr to head, stop if list empty.
+            head = head->next;          //Advance head to next element.
+            free (curr);                //Free saved pointer.
+        }
+    }
+}
+
 //Count nr of lines in file
 extern int countLines(char *fileName){
     FILE *fp;
