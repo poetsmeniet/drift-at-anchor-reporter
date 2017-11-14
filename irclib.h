@@ -39,4 +39,7 @@ extern int getAllChannels(int *clientSocket, chanList *chans);
 
 //Retrieves all automated responses, including regex triggers
 extern int retrieveAutomatedReplies(aR *replies, char *fileName);
+
+//Free channels linked list
+extern void freeChannels(chanList *targetList);
 #endif

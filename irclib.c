@@ -321,3 +321,19 @@ extern int ircLogin(appConfig *ircData, int *clientSocket){
 
     return 0;
 }
+
+//Free channels linked list
+extern void freeChannels(chanList *targetList){
+    
+    if(targetList->next == NULL){
+        free(targetList);
+    }else{
+        chanList *head = targetList;
+        chanList *curr;
+        while ((curr = head) != NULL) { // set curr to head, stop if list empty.
+            head = head->next;          // advance head to next element.
+            free (curr);                // delete saved pointer.
+        }
+    }
+    printf("Done freeing channels\n");
+}
