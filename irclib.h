@@ -10,6 +10,8 @@ typedef struct chanList{
 }chanList;
 
 typedef struct automaticReplies{
+    int privateMsgFlag; //Private or channel msg
+    int repeatMsgFlag; //Msg is to be repeated or not
     char regex[MAXREGEXSZ]; //This regex match will trigger reply
     char reply[MAXREPLYSZ]; //Reply body
 }aR;
