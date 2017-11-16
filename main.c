@@ -32,9 +32,9 @@ int main(void){
         printf("Connect failed with code %d\n", clientSocket);
         return 1;
     }
+
     int rc = ircLogin(&config, &clientSocket);
 
-    printf("irclogin rc = %d\n", rc);
     if(rc > 0){
         printf("Error logging in, rc %d\n", rc);
         return 1;
