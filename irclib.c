@@ -9,6 +9,26 @@
 #define MAXLEN 200
 #define RESPBUFSZ 5
 
+//Copies token at specified index (channel or username)
+int returnTokenAtIndex(char *line, int index, char *target){
+    //Tokenise using whitespace
+    char *token = strtok(line, " ");
+    int tokCnt = 0;
+    while(token != NULL){
+        if(tokCnt == index && token[0] == '#'){
+            //Copy to target
+            size_t len = strlen(token);
+            memcpy(target, token, len); 
+            target[len] = '\0';
+            return 1;
+        }
+    
+        token = strtok(NULL, " ");
+        tokCnt++;
+    }
+    return 0;
+}
+
 /* Automated replies, triggered by regex
  * returns: nr of replies found in file */
 extern int retrieveAutomatedReplies(aR *replies, char *fileName){
@@ -18,10 +38,13 @@ extern int retrieveAutomatedReplies(aR *replies, char *fileName){
 
     if(fp != NULL){
         while(!feof(fp)){
-            char regex[MAXLEN];
-            char reply[MAXLEN];
+            int privateMsgFlag; //Private or channel msg
+            int repeatMsgFlag; //Msg is to be repeated or not
+            char regex[MAXLEN]; //Trigger
+            char reply[MAXLEN]; //String reply
 
-            fscanf(fp, "%s %99[^\n]\n", &regex[0], reply);
+            fscanf(fp, "%d %d %s %99[^\n]\n", &privateMsgFlag, &repeatMsgFlag, &regex[0], reply);
+            printf("# has value '%d' and privateMsgFlag has value '%d' (regex='%s'\n", '#', privateMsgFlag, regex);
 
             size_t keyLen = strlen(regex);
             size_t valLen = strlen(reply);
@@ -31,12 +54,14 @@ extern int retrieveAutomatedReplies(aR *replies, char *fileName){
             }
 
             //Check length of strings and store
-            if(strlen(regex) > 0 && strlen(reply) > 0){
+            // * temporarily added check for privateMsgFlag
+            if(strlen(regex) > 0 && strlen(reply) > 0 && privateMsgFlag < 2){
+                replies[lineNr].privateMsgFlag = privateMsgFlag;
+                replies[lineNr].repeatMsgFlag = repeatMsgFlag;
                 memcpy(replies[lineNr].regex, regex, strlen(regex));
                 replies[lineNr].regex[keyLen] = '\0';
                 memcpy(replies[lineNr].reply, reply, strlen(reply));
                 replies[lineNr].reply[valLen] = '\0';
-                //printf("'%s' stored result in reply '%s'\n", replies[lineNr].regex, replies[lineNr].reply);
                 lineNr++;
             }
         }
@@ -81,26 +106,14 @@ extern int getAllChannels(int *clientSocket, chanList *chans){
         //Parse data line by line
         char *line = strtok(respCpy, "\n");
         while(line != NULL){
-            //Tokenise using whitespace to extract channgel name
-            char *token = strtok(line, " ");
-            int tokCnt = 0;
-            while(token != NULL){
-                if(tokCnt == 3 && token[0] == '#'){
 
-                    //Add to channel struct
-                    size_t len = strlen(token);
-                    printf("%d: Channel: %s, len = %d\n", chanCnt, token, len);
-                    memcpy(chans->chanName, token, len); 
-                    chans->chanName[len] = '\0';
-                    chans->next = malloc(sizeof(chanList));;
-                    chans->next->next = NULL;
-                    chans = chans->next;
-
-                    chanCnt++;
-                }
-
-                token = strtok(NULL, " ");
-                tokCnt++;
+            int rc2 = returnTokenAtIndex(line, 3, chans->chanName);
+            if(rc2 == 1){
+                chans->next = malloc(sizeof(chanList));;
+                chans->next->next = NULL;
+                chans = chans->next;
+    
+                chanCnt++;
             }
         
             //End of response data
@@ -114,10 +127,11 @@ extern int getAllChannels(int *clientSocket, chanList *chans){
             }
             
             line = strtok(NULL, "\n");
-
-            free(responses->buffer);
         }
     }
+
+    free(responses->buffer);
+    printf("here2...\n");
 
     return 0;
 }
@@ -128,13 +142,10 @@ extern int parseResponses(int *clientSocket, aR *replies){
     while(1){
         int rc = recvMessage(clientSocket, responses, 1);
 
-        //No response data after socket timeout
-        if(rc == -1){
+        if(rc == -1) //No response data after socket timeout
             continue;
-        }
 
-        //Something whent horribly wrong..
-        if(rc == -2){
+        if(rc == -2){//Something whent horribly wrong..
             printf("TCP error?, quitting parseresponse\n");
             free(responses);
             free(responses->buffer);
@@ -160,10 +171,16 @@ extern int parseResponses(int *clientSocket, aR *replies){
         int cnt = 0;
         while(bcmp(replies[cnt].regex, "EOA\0", 4) != 0){
             if(regexMatch(replies[cnt].regex, responses->buffer) == 0){
+                printf("\twe matched! reply with '%s'. ", replies[cnt].reply);
                 //Is this a private or channel message?
-                //
-                //Respond to private/channel msg?
-                printf("\twe matched! reply with '%s'\n", replies[cnt].reply);
+                if(replies[cnt].privateMsgFlag == 1)
+                    printf("This is a private msg only to user. ");
+                else
+                    printf("This is a channel reply. ");
+                if(replies[cnt].repeatMsgFlag == 1)
+                    printf("It may be repeated indefinitely.\n");
+                else
+                    printf("It may be repeated only once.\n");
             }
             cnt++;
         }
@@ -324,7 +341,7 @@ extern int ircLogin(appConfig *ircData, int *clientSocket){
 
 //Free channels linked list
 extern void freeChannels(chanList *targetList){
-    
+    //Onlye one element, otherwise free consecutive elements
     if(targetList->next == NULL){
         free(targetList);
     }else{
