@@ -9,6 +9,14 @@
 
 int main(void){
     printf("Retrieving automated responses...\n");
+    //todo: Parameterize this filename
+    int lineCnt = countLines("replies.txt");
+    aR replies[lineCnt + 1];
+    if(retrieveAutomatedReplies(replies, "replies.txt") == -1){
+        printf("There is an error in your replies configuration\n");
+        return 1;
+    }
+    
     
     //Retreive configuration parameters
     appConfig config;
@@ -31,11 +39,6 @@ int main(void){
         printf("Error logging in, rc %d\n", rc);
         return 1;
     }
-    
-    //todo: Parameterize this filename
-    int lineCnt = countLines("replies.txt");
-    aR replies[lineCnt + 1];
-    retrieveAutomatedReplies(replies, "replies.txt");
     
     //test channels linked list, todo: offload this to external file
     chanList *chans = malloc(sizeof(chanList));
