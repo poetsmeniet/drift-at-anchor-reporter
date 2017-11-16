@@ -9,6 +9,21 @@
 #define MAXLEN 200
 #define RESPBUFSZ 5
 
+//Returns user name from privmsg
+int returnUserName(char *line, char *target){
+    int len = strlen(line);
+    int i;
+    for(i = 1; i < len; i++){
+        if(line[i] == '!' && line[i + 1] == '~'){
+            target[i - 1] = '\0';
+            return 1;
+        }else{
+            target[i - 1] = line[i];
+        }
+    }
+    return 0;
+}
+
 //Copies token at specified index (channel or username)
 int returnTokenAtIndex(char *line, int index, char *target){
     //Tokenise using whitespace
@@ -181,6 +196,15 @@ extern int parseResponses(int *clientSocket, aR *replies){
                     printf("It may be repeated indefinitely.\n");
                 else
                     printf("It may be repeated only once.\n");
+
+                char respChan[100];
+                int rc2 = returnTokenAtIndex(responses->buffer, 2, respChan);
+                printf("\tAND channel name to use: '%s'\n", respChan);
+
+                char respUsr[100];
+                rc2 = returnUserName(responses->buffer, respUsr);
+                if(rc2 == 1)
+                    printf("\tUser to reply to: '%s'\n", respUsr);
             }
             cnt++;
         }
