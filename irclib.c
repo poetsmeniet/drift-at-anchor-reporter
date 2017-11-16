@@ -31,10 +31,13 @@ int returnTokenAtIndex(char *line, int index, char *target){
     int tokCnt = 0;
     while(token != NULL){
         if(tokCnt == index && token[0] == '#'){
-            //Copy to target
-            size_t len = strlen(token);
-            memcpy(target, token, len); 
-            target[len] = '\0';
+            //NULL is allowed as target
+            if(target != NULL){
+                //Copy to target
+                size_t len = strlen(token);
+                memcpy(target, token, len); 
+                target[len] = '\0';
+            }
             return 1;
         }
     
@@ -188,23 +191,40 @@ extern int parseResponses(int *clientSocket, aR *replies){
             if(regexMatch(replies[cnt].regex, responses->buffer) == 0){
                 printf("\twe matched! reply with '%s'. ", replies[cnt].reply);
                 //Is this a private or channel message?
-                if(replies[cnt].privateMsgFlag == 1)
-                    printf("This is a private msg only to user. ");
-                else
-                    printf("This is a channel reply. ");
-                if(replies[cnt].repeatMsgFlag == 1)
-                    printf("It may be repeated indefinitely.\n");
-                else
-                    printf("It may be repeated only once.\n");
 
                 char respChan[100];
-                int rc2 = returnTokenAtIndex(responses->buffer, 2, respChan);
-                printf("\tAND channel name to use: '%s'\n", respChan);
 
+                //Copy responses buffer
+                char *respCpy = malloc(strlen(responses->buffer) * sizeof(char));
+                memcpy(respCpy, responses->buffer, strlen(responses->buffer));
+
+                //Retrieve channale name
+                int rc2 = returnTokenAtIndex(respCpy, 2, respChan);
+
+                char thisReply[200] = "";
                 char respUsr[100];
-                rc2 = returnUserName(responses->buffer, respUsr);
-                if(rc2 == 1)
+
+                returnUserName(responses->buffer, respUsr);
+
+                //Compose the private message to user
+                if(rc2 == 0 && replies[cnt].privateMsgFlag == 1){
                     printf("\tUser to reply to: '%s'\n", respUsr);
+                    sprintf(thisReply, "PRIVMSG %s :%s\n", respUsr, replies[cnt].reply);
+                }
+                
+                //Compose channel message
+                if(rc2 == 1 && replies[cnt].privateMsgFlag == 0){
+                    sprintf(thisReply, "PRIVMSG %s :%s\n", respChan, replies[cnt].reply);
+                }
+
+                //Send message
+                if(strlen(thisReply) > 0){
+                    printf("\nComposed response: '%s' len=%d\n\n", thisReply, strlen(thisReply));
+                    int rc = sendMessage(clientSocket, thisReply, strlen(thisReply));
+                    if(rc == 0){
+                        printf("do some error handling dude\n");
+                    }
+                }
             }
             cnt++;
         }
