@@ -2,6 +2,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <stdlib.h>
+#include <regex.h>
 #include "tcp_client.h"
 #include "config.h"
 #include "irclib.h"
@@ -52,17 +53,22 @@ int returnTokenAtIndex(char *line, int index, char *target){
 extern int retrieveAutomatedReplies(aR *replies, char *fileName){
     FILE *fp;
     int lineNr = 0;
+    int lineCnt = 0;
     fp = fopen(fileName, "r");
 
     if(fp != NULL){
         while(!feof(fp)){
+            lineCnt++;
             int privateMsgFlag; //Private or channel msg
             int repeatMsgFlag; //Msg is to be repeated or not
             char regex[MAXLEN]; //Trigger
             char reply[MAXLEN]; //String reply
 
-            fscanf(fp, "%d %d %s %99[^\n]\n", &privateMsgFlag, &repeatMsgFlag, &regex[0], reply);
-            printf("# has value '%d' and privateMsgFlag has value '%d' (regex='%s'\n", '#', privateMsgFlag, regex);
+            int rc = fscanf(fp, "%d %d %s %99[^\n]\n", &privateMsgFlag, &repeatMsgFlag, &regex[0], reply);
+            if(rc == 0){
+                printf("\tError in '%s', line number %d\n", fileName, lineCnt);
+                return -1;
+            }
 
             size_t keyLen = strlen(regex);
             size_t valLen = strlen(reply);
@@ -74,13 +80,23 @@ extern int retrieveAutomatedReplies(aR *replies, char *fileName){
             //Check length of strings and store
             // * temporarily added check for privateMsgFlag
             if(strlen(regex) > 0 && strlen(reply) > 0 && privateMsgFlag < 2){
-                replies[lineNr].privateMsgFlag = privateMsgFlag;
-                replies[lineNr].repeatMsgFlag = repeatMsgFlag;
-                memcpy(replies[lineNr].regex, regex, strlen(regex));
-                replies[lineNr].regex[keyLen] = '\0';
-                memcpy(replies[lineNr].reply, reply, strlen(reply));
-                replies[lineNr].reply[valLen] = '\0';
-                lineNr++;
+                //Compile regex, case insensitive
+                regex_t preg;
+                int rc = regcomp(&preg, regex, REG_ICASE);
+                if(rc != 0){
+                    printf("\tRegex compilation failed, rc = %d (%s)\n", rc, regex);
+                }else{
+                    //Add reply parameters to struct
+                    replies[lineNr].privateMsgFlag = privateMsgFlag;
+                    replies[lineNr].repeatMsgFlag = repeatMsgFlag;
+                    memcpy(replies[lineNr].regex, regex, strlen(regex));
+                    replies[lineNr].regex[keyLen] = '\0';
+                    memcpy(replies[lineNr].reply, reply, strlen(reply));
+                    replies[lineNr].reply[valLen] = '\0';
+                    lineNr++;
+
+                    printf("\tAdded regex to replies '%s'\n", regex);
+                }
             }
         }
     }else{
@@ -189,24 +205,21 @@ extern int parseResponses(int *clientSocket, aR *replies){
         int cnt = 0;
         while(bcmp(replies[cnt].regex, "EOA\0", 4) != 0){
             if(regexMatch(replies[cnt].regex, responses->buffer) == 0){
-                printf("\twe matched! reply with '%s'. ", replies[cnt].reply);
-                //Is this a private or channel message?
-
-                char respChan[100];
 
                 //Copy responses buffer
                 char *respCpy = malloc(strlen(responses->buffer) * sizeof(char));
                 memcpy(respCpy, responses->buffer, strlen(responses->buffer));
 
                 //Retrieve channale name
+                char respChan[100];
                 int rc2 = returnTokenAtIndex(respCpy, 2, respChan);
 
-                char thisReply[200] = "";
+                //Get user name to respons to
                 char respUsr[100];
-
                 returnUserName(responses->buffer, respUsr);
 
                 //Compose the private message to user
+                char thisReply[200] = "";
                 if(rc2 == 0 && replies[cnt].privateMsgFlag == 1){
                     printf("\tUser to reply to: '%s'\n", respUsr);
                     sprintf(thisReply, "PRIVMSG %s :%s\n", respUsr, replies[cnt].reply);
@@ -221,6 +234,7 @@ extern int parseResponses(int *clientSocket, aR *replies){
                 if(strlen(thisReply) > 0){
                     printf("\nComposed response: '%s' len=%d\n\n", thisReply, strlen(thisReply));
                     int rc = sendMessage(clientSocket, thisReply, strlen(thisReply));
+
                     if(rc == 0){
                         printf("do some error handling dude\n");
                     }
