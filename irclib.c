@@ -232,7 +232,6 @@ extern int parseResponses(int *clientSocket, aR *replies){
                 int suppressReply = 0;
 
                 if(rc2 == 0 && replies[cnt].privateMsgFlag == 1){
-                    int firstReply = 1;
                     printf("\tUser to reply to: '%s'\n", respUsr);
                     sprintf(thisReply, "PRIVMSG %s :%s\n", respUsr, replies[cnt].reply);
                     
@@ -241,14 +240,12 @@ extern int parseResponses(int *clientSocket, aR *replies){
                             && getValue(respCnts, respUsr, cnt, 1) == cnt){
                         printf("---Suppressing this private user message\n");
                         suppressReply = 1;
-                        firstreply = 0;
                     }else{
                         //Add keys to list
                         addKey(respCnts, respUsr, cnt, strlen(respUsr));
                     }
-                    
-
                 }
+
                 
                 //Compose channel message
                 if(rc2 == 1 && replies[cnt].privateMsgFlag == 0){
@@ -264,9 +261,7 @@ extern int parseResponses(int *clientSocket, aR *replies){
                         addKey(respCnts, respChan, cnt, strlen(respChan));
                     }
                 }
-
-
-
+            
                 printHashMap(respCnts);
 
                 //Send message
@@ -279,6 +274,7 @@ extern int parseResponses(int *clientSocket, aR *replies){
                     }
                 }
             }
+
             cnt++;
         }
         
