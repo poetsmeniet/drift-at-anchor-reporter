@@ -52,6 +52,9 @@ int returnTokenAtIndex(char *line, int index, char *target){
 /* Automated replies, triggered by regex
  * returns: nr of replies found in file */
 extern int retrieveAutomatedReplies(aR *replies, char *fileName){
+    //First delete all lines
+    memcpy(replies[0].regex, "EOA\0", 4); //Superfluous, ok
+
     FILE *fp;
     int lineNr = 0;
     int lineCnt = 0;
@@ -65,9 +68,9 @@ extern int retrieveAutomatedReplies(aR *replies, char *fileName){
             char regex[MAXLEN]; //Trigger
             char reply[MAXLEN]; //String reply
 
-            int rc = fscanf(fp, "%d %d %s %99[^\n]\n", &privateMsgFlag, &repeatMsgCnt, &regex[0], reply);
+            int rc = fscanf(fp, "%d %d %s %200[^\n]\n", &privateMsgFlag, &repeatMsgCnt, &regex[0], reply);
             if(rc == 0){
-                printf("\tError in '%s', line number %d\n", fileName, lineCnt);
+                printf("\tError in '%s', line number %d\n", fileName, lineCnt - 1);
                 return -1;
             }
 
@@ -96,7 +99,7 @@ extern int retrieveAutomatedReplies(aR *replies, char *fileName){
                     replies[lineNr].reply[valLen] = '\0';
                     lineNr++;
 
-                    printf("\tAdded regex to replies '%s'\n", regex);
+                    //printf("\tAdded regex to replies '%s'\n", regex);
                 }
             }
         }
@@ -181,6 +184,12 @@ extern int parseResponses(int *clientSocket, aR *replies){
     generateHashMap(respCnts);
 
     while(1){
+        //Reload replies at runtime (optional)
+        if(retrieveAutomatedReplies(replies, "replies.txt") == -1){
+            printf("There is an error in your replies configuration\n");
+            return 1;
+        }
+
         int rc = recvMessage(clientSocket, responses, 1);
 
         if(rc == -1) //No response data after socket timeout
