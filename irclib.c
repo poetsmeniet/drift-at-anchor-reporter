@@ -7,6 +7,7 @@
 #include "config.h"
 #include "irclib.h"
 #include "generic_unix_tools.h"
+#include "asciiHashMap.h"
 #define MAXLEN 200
 #define RESPBUFSZ 5
 
@@ -60,11 +61,11 @@ extern int retrieveAutomatedReplies(aR *replies, char *fileName){
         while(!feof(fp)){
             lineCnt++;
             int privateMsgFlag; //Private or channel msg
-            int repeatMsgFlag; //Msg is to be repeated or not
+            int repeatMsgCnt; //Msg is to be repeated or not
             char regex[MAXLEN]; //Trigger
             char reply[MAXLEN]; //String reply
 
-            int rc = fscanf(fp, "%d %d %s %99[^\n]\n", &privateMsgFlag, &repeatMsgFlag, &regex[0], reply);
+            int rc = fscanf(fp, "%d %d %s %99[^\n]\n", &privateMsgFlag, &repeatMsgCnt, &regex[0], reply);
             if(rc == 0){
                 printf("\tError in '%s', line number %d\n", fileName, lineCnt);
                 return -1;
@@ -88,7 +89,7 @@ extern int retrieveAutomatedReplies(aR *replies, char *fileName){
                 }else{
                     //Add reply parameters to struct
                     replies[lineNr].privateMsgFlag = privateMsgFlag;
-                    replies[lineNr].repeatMsgFlag = repeatMsgFlag;
+                    replies[lineNr].repeatMsgCnt = repeatMsgCnt;
                     memcpy(replies[lineNr].regex, regex, strlen(regex));
                     replies[lineNr].regex[keyLen] = '\0';
                     memcpy(replies[lineNr].reply, reply, strlen(reply));
@@ -171,8 +172,14 @@ extern int getAllChannels(int *clientSocket, chanList *chans){
 }
 
 extern int parseResponses(int *clientSocket, aR *replies){
+    //Allocate some memory for server responses
     respBuf *responses = malloc(RESPBUFSZ * sizeof(respBuf));
     
+    //Declare hash map for storing response counts per user/channel
+    hashMap *respCnts = malloc(ASCIIEND * sizeof(hashMap)); //The number of needed ASCII chars, 32 through 126
+    respCnts->totalCnt = 0;
+    generateHashMap(respCnts);
+
     while(1){
         int rc = recvMessage(clientSocket, responses, 1);
 
@@ -199,6 +206,8 @@ extern int parseResponses(int *clientSocket, aR *replies){
                 return 1;
             }
             printf("rc = %d\n", rc);
+            //Continue, dont parse responses
+            continue;
         }
         
         //Check all automated responses and reply accordingly
@@ -220,18 +229,48 @@ extern int parseResponses(int *clientSocket, aR *replies){
 
                 //Compose the private message to user
                 char thisReply[200] = "";
+                int suppressReply = 0;
+
                 if(rc2 == 0 && replies[cnt].privateMsgFlag == 1){
+                    int firstReply = 1;
                     printf("\tUser to reply to: '%s'\n", respUsr);
                     sprintf(thisReply, "PRIVMSG %s :%s\n", respUsr, replies[cnt].reply);
+                    
+                    //Test if repeatMsgCnt has not been depleted
+                    if(getValue(respCnts, respUsr, cnt, 0) >= replies[cnt].repeatMsgCnt\
+                            && getValue(respCnts, respUsr, cnt, 1) == cnt){
+                        printf("---Suppressing this private user message\n");
+                        suppressReply = 1;
+                        firstreply = 0;
+                    }else{
+                        //Add keys to list
+                        addKey(respCnts, respUsr, cnt, strlen(respUsr));
+                    }
+                    
+
                 }
                 
                 //Compose channel message
                 if(rc2 == 1 && replies[cnt].privateMsgFlag == 0){
                     sprintf(thisReply, "PRIVMSG %s :%s\n", respChan, replies[cnt].reply);
+
+                    //Test if repeatMsgCnt has not been depleted
+                    if(getValue(respCnts, respChan, cnt, 0) >= replies[cnt].repeatMsgCnt\
+                            && getValue(respCnts, respChan, cnt, 1) == cnt){
+                        printf("---Suppressing this channel message\n");
+                        suppressReply = 1;
+                    }else{
+                        //Add keys to list
+                        addKey(respCnts, respChan, cnt, strlen(respChan));
+                    }
                 }
 
+
+
+                printHashMap(respCnts);
+
                 //Send message
-                if(strlen(thisReply) > 0){
+                if(strlen(thisReply) > 0 && suppressReply == 0){
                     printf("\nComposed response: '%s' len=%d\n\n", thisReply, strlen(thisReply));
                     int rc = sendMessage(clientSocket, thisReply, strlen(thisReply));
 
