@@ -8,11 +8,12 @@
 #include "irclib.h"
 #include "generic_unix_tools.h"
 #include "asciiHashMap.h"
-#define MAXLEN 200
+#define MAXLEN 2000
 #define RESPBUFSZ 5
 
 //Returns user name from privmsg
-int returnUserName(char *line, char *target){
+int returnUserName(char *line, char *target)
+{
     int len = strlen(line);
     int i;
     for(i = 1; i < len; i++){
@@ -27,11 +28,13 @@ int returnUserName(char *line, char *target){
 }
 
 //Copies token at specified index (channel or username)
-int returnTokenAtIndex(char *line, int index, char *target){
+int returnTokenAtIndex(char *line, int index, char *target)
+{
     //For each line in response look for channel names
     char respCpy[MAXLEN];
     memcpy(respCpy, line, strlen(line));
     char *lines = strtok(respCpy, "\n");
+
     while(lines != NULL){
         //Tokenise line using whitespace
         char *token = strtok(lines, " ");
@@ -51,6 +54,7 @@ int returnTokenAtIndex(char *line, int index, char *target){
             token = strtok(NULL, " ");
             tokCnt++;
         }
+
         lines = strtok(NULL, "\n");
     }
 
@@ -59,7 +63,8 @@ int returnTokenAtIndex(char *line, int index, char *target){
 
 /* Automated replies, triggered by regex
  * returns: nr of replies found in file */
-extern int retrieveAutomatedReplies(aR *replies, char *fileName){
+extern int retrieveAutomatedReplies(aR *replies, char *fileName)
+{
     //First delete all lines
     memcpy(replies[0].regex, "EOA\0", 4); //Superfluous, ok
 
@@ -125,7 +130,8 @@ extern int retrieveAutomatedReplies(aR *replies, char *fileName){
 }
 
 //Call "list" and store all channels into channel list
-extern int getAllChannels(int *clientSocket, chanList *chans){
+extern int getAllChannels(int *clientSocket, chanList *chans)
+{
     //Call list command
     int rc = sendMessage(clientSocket, "list\n", 5);
 
@@ -182,22 +188,17 @@ extern int getAllChannels(int *clientSocket, chanList *chans){
     return 0;
 }
 
-extern int parseResponses(int *clientSocket, aR *replies){
+extern int parseResponses(int *clientSocket, aR *replies)
+{
     //Allocate some memory for server responses
     respBuf *responses = malloc(RESPBUFSZ * sizeof(respBuf));
     
     //Declare hash map for storing response counts per user/channel
-    hashMap *respCnts = malloc(ASCIIEND * sizeof(hashMap)); //The number of needed ASCII chars, 32 through 126
+    hashMap *respCnts = malloc(ASCIIEND * sizeof(hashMap)); 
     respCnts->totalCnt = 0;
     generateHashMap(respCnts);
 
     while(1){
-        //Reload replies at runtime (optional)
-        if(retrieveAutomatedReplies(replies, "replies.txt") == -1){
-            printf("There is an error in your replies configuration\n");
-            return 1;
-        }
-
         int rc = recvMessage(clientSocket, responses, 1);
 
         if(rc == -1) //No response data after socket timeout
@@ -255,14 +256,13 @@ extern int parseResponses(int *clientSocket, aR *replies){
                     //Test if repeatMsgCnt has not been depleted
                     if(getValue(respCnts, respUsr, cnt, 0) >= replies[cnt].repeatMsgCnt\
                             && getValue(respCnts, respUsr, cnt, 1) == cnt){
-                        printf("---Suppressing this private user message\n");
+                        printf("---Suppressing this private user response\n");
                         suppressReply = 1;
                     }else{
                         //Add keys to list
                         addKey(respCnts, respUsr, cnt, strlen(respUsr));
                     }
                 }
-
                 
                 //Compose channel message
                 if(rc2 == 1 && replies[cnt].privateMsgFlag == 0){
@@ -279,8 +279,6 @@ extern int parseResponses(int *clientSocket, aR *replies){
                     }
                 }
             
-                printHashMap(respCnts);
-
                 //Send message
                 if(strlen(thisReply) > 0 && suppressReply == 0){
                     printf("\nComposed response: '%s' len=%d\n\n", thisReply, strlen(thisReply));
@@ -296,6 +294,12 @@ extern int parseResponses(int *clientSocket, aR *replies){
         }
         
         responses->buffer[0] = '\0';
+        
+        //Reload replies at runtime (optional)
+        if(retrieveAutomatedReplies(replies, "replies.txt") == -1){
+            printf("There is an error in your replies configuration\n");
+            return 1;
+        }
     }
 
     free(responses->buffer);
@@ -304,8 +308,9 @@ extern int parseResponses(int *clientSocket, aR *replies){
 }
     
 //Join channels..
-extern int joinChannels(int *clientSocket, chanList *chans){
-    chanList *head = chans;
+extern int joinChannels(int *clientSocket, chanList *chans)
+{
+    chanList *head = chans->next;
 
     if(head == NULL){
         printf("\tNo channels to join\n");
@@ -316,7 +321,7 @@ extern int joinChannels(int *clientSocket, chanList *chans){
     char cmd[86];
     int rc;
 
-    while(head->next != NULL){
+    while(head != NULL){
         printf("Joining channel: %s\n", head->chanName);
 
         snprintf(cmd, MAXLEN, "join %s\n", head->chanName);
@@ -347,7 +352,8 @@ extern int joinChannels(int *clientSocket, chanList *chans){
 
 //Spawns interactive session to IRC server
 //- mainly for debugging
-extern int spawnShell(int *clientSocket){
+extern int spawnShell(int *clientSocket)
+{
     printf("Spawning shell..\n");
 
     //Loop stdin for issueing commands
@@ -395,7 +401,8 @@ extern int spawnShell(int *clientSocket){
 }
 
 //logs into connected irc server using specified data
-extern int ircLogin(appConfig *ircData, int *clientSocket){
+extern int ircLogin(appConfig *ircData, int *clientSocket)
+{
     //Send a message and get response(s) irc
     int rc;
 
@@ -450,7 +457,8 @@ extern int ircLogin(appConfig *ircData, int *clientSocket){
 }
 
 //Free channels linked list
-extern void freeChannels(chanList *targetList){
+extern void freeChannels(chanList *targetList)
+{
     //Onlye one element, otherwise free consecutive elements
     if(targetList->next == NULL){
         free(targetList);
@@ -462,5 +470,22 @@ extern void freeChannels(chanList *targetList){
             free (curr);                // delete saved pointer.
         }
     }
-    printf("Done freeing channels\n");
+}
+
+extern int addChannel(chanList *chans, char *channelName)
+{
+    chanList *curr = chans;
+    while(curr->next != NULL){
+        printf(".");
+        curr = chans->next;
+    }
+
+    //Add channel to list
+    curr->next = malloc(sizeof(chanList));
+    memcpy(curr->next->chanName, channelName, strlen(channelName));
+    curr->next->chanName[strlen(channelName)] = '\0';
+    curr->next->next = NULL;
+    printf("Added channel '%s' | '%s'\n", channelName, chans->next->chanName);
+
+    return 0;
 }
