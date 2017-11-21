@@ -7,7 +7,8 @@
 #include "irclib.h"
 #include "generic_unix_tools.h"
 
-int main(void){
+int main(void)
+{
     printf("Retrieving automated responses...\n");
     //todo: Parameterize this filename
     int lineCnt = countLines("replies.txt");
@@ -17,6 +18,10 @@ int main(void){
         return 1;
     }
     
+    chanList *chans = malloc(sizeof(chanList));
+    chans->next = NULL;
+
+    int rcChan = addChannel(chans, "#Botchan");
     
     //Retreive configuration parameters
     appConfig config;
@@ -40,17 +45,16 @@ int main(void){
         return 1;
     }
     
-    //test channels linked list, todo: offload this to external file
-    chanList *chans = malloc(sizeof(chanList));
-    chans->next = NULL;
+    //printf("\nRequesting all channels...\n");
+    //if(getAllChannels(&clientSocket, chans) == -2){
+    //    printf("Recall getallchans..\n");
+    //    rc = getAllChannels(&clientSocket, chans);
+    //}
+    //printf("done");
 
-    printf("\nRequesting all channels...\n");
-    if(getAllChannels(&clientSocket, chans) == -2){
-        printf("Recall getallchans..\n");
-        rc = getAllChannels(&clientSocket, chans);
-    }
-    if(rc == 0)
+    if(rcChan == 0){
         rc = joinChannels(&clientSocket, chans);
+    }
 
     //Running parsing of responses
     printf("Starting parseResponses..\n");
