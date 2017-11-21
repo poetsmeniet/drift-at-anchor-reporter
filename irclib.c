@@ -28,24 +28,32 @@ int returnUserName(char *line, char *target){
 
 //Copies token at specified index (channel or username)
 int returnTokenAtIndex(char *line, int index, char *target){
-    //Tokenise using whitespace
-    char *token = strtok(line, " ");
-    int tokCnt = 0;
-    while(token != NULL){
-        if(tokCnt == index && token[0] == '#'){
-            //NULL is allowed as target
-            if(target != NULL){
-                //Copy to target
-                size_t len = strlen(token);
-                memcpy(target, token, len); 
-                target[len] = '\0';
+    //For each line in response look for channel names
+    char respCpy[MAXLEN];
+    memcpy(respCpy, line, strlen(line));
+    char *lines = strtok(respCpy, "\n");
+    while(lines != NULL){
+        //Tokenise line using whitespace
+        char *token = strtok(lines, " ");
+        int tokCnt = 0;
+        while(token != NULL){
+            if(tokCnt == index && token[0] == '#'){
+                //NULL is allowed as target
+                if(target != NULL){
+                    //Copy to target
+                    size_t len = strlen(token);
+                    memcpy(target, token, len); 
+                    target[len] = '\0';
+                }
+                return 1;
             }
-            return 1;
+        
+            token = strtok(NULL, " ");
+            tokCnt++;
         }
-    
-        token = strtok(NULL, " ");
-        tokCnt++;
+        lines = strtok(NULL, "\n");
     }
+
     return 0;
 }
 
@@ -214,7 +222,7 @@ extern int parseResponses(int *clientSocket, aR *replies){
                 free(responses->buffer);
                 return 1;
             }
-            printf("rc = %d\n", rc);
+
             //Continue, dont parse responses
             continue;
         }
