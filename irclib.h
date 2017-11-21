@@ -44,4 +44,6 @@ extern int retrieveAutomatedReplies(aR *replies, char *fileName);
 
 //Free channels linked list
 extern void freeChannels(chanList *targetList);
+
+extern int addChannel(chanList *chans, char *channelName);
 #endif
