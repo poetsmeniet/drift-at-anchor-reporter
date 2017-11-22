@@ -116,3 +116,18 @@ int getValue(hashMap *hMap, char *key, int replyNr, int returnVal)
     //Default value is non-existend
     return -1;
 }
+
+//Free the allocated memory
+extern int freeHashMap(hashMap *hMap)
+{
+    int i;
+    for(i = ASCIISTART; i < ASCIIEND; i++){
+        hME *curr = hMap[i].keys;
+        while(curr != NULL){
+            free(curr->key);
+            curr = curr->next;
+        }
+    }
+    free(hMap);
+    return 0;
+}

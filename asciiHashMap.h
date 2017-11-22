@@ -56,4 +56,6 @@ extern int getValue(hashMap *hMap, char *key, int replyNr, int returnVal);
 //Just lists all entries in hashmap
 extern void printHashMap(hashMap *hMap);
 
+//Free the allocated memory
+extern int freeHashMap(hashMap *hMap);
 #endif
