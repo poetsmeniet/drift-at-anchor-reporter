@@ -8,8 +8,8 @@
 #include "irclib.h"
 #include "generic_unix_tools.h"
 #include "asciiHashMap.h"
-#define MAXLEN 2000
-#define RESPBUFSZ 5
+#define MAXLEN 80000
+#define RESPBUFSZ 2
 
 //Returns user name from privmsg
 int returnUserName(char *line, char *target)
@@ -27,35 +27,33 @@ int returnUserName(char *line, char *target)
     return 0;
 }
 
-//Copies token at specified index (channel or username)
+/*Copies token at specified index (channel = 3)
+ * Returns 0 if token is not found
+ * Return 1 if token is found */
 int returnTokenAtIndex(char *line, int index, char *target)
 {
     //For each line in response look for channel names
     char respCpy[MAXLEN];
+    char *sp1;
     memcpy(respCpy, line, strlen(line));
-    char *lines = strtok(respCpy, "\n");
 
-    while(lines != NULL){
-        //Tokenise line using whitespace
-        char *token = strtok(lines, " ");
-        int tokCnt = 0;
-        while(token != NULL){
-            if(tokCnt == index && token[0] == '#'){
-                //NULL is allowed as target
-                if(target != NULL){
-                    //Copy to target
-                    size_t len = strlen(token);
-                    memcpy(target, token, len); 
-                    target[len] = '\0';
-                }
-                return 1;
+    //Tokenise line using whitespace
+    char *token = strtok_r(respCpy, " ", &sp1);
+    int tokCnt = 0;
+    while(token != NULL){
+        if(tokCnt == index && token[0] == '#'){
+            //NULL is allowed as target
+            if(target != NULL){
+                //Copy to target
+                size_t len = strlen(token);
+                memcpy(target, token, len); 
+                target[len] = '\0';
             }
-        
-            token = strtok(NULL, " ");
-            tokCnt++;
+            return 1;
         }
-
-        lines = strtok(NULL, "\n");
+    
+        token = strtok_r(NULL, " ", &sp1);
+        tokCnt++;
     }
 
     return 0;
@@ -153,37 +151,44 @@ extern int getAllChannels(int *clientSocket, chanList *chans)
         }
 
         char respCpy[MAXLEN];
+        if(strlen(responses->buffer) > MAXLEN){
+            printf("\n\ntring to FIT %d into %d will not work. Resonse sz too graet\n\n", strlen(responses->buffer), MAXLEN);
+            return 1;
+        }
         memcpy(respCpy, responses->buffer, strlen(responses->buffer));
 
         //Parse data line by line
-        char *line = strtok(respCpy, "\n");
+        char *line = NULL;
+        line = strtok(respCpy, "\r\n");
         while(line != NULL){
-
-            int rc2 = returnTokenAtIndex(line, 3, chans->chanName);
-            if(rc2 == 1){
-                chans->next = malloc(sizeof(chanList));;
-                chans->next->next = NULL;
-                chans = chans->next;
-    
-                chanCnt++;
-            }
-        
-            //End of response data
-            if(strstr(responses->buffer, "End of /LIST") != NULL){
-                if(chanCnt == 0){
-                    printf("Found %d channels..\n", chanCnt);
-                    free(responses->buffer);
-                    free(responses);
-                    return -2;
-                }
-            }
+            //printf("RESPCPY: '%s'\n", respCpy);
+            //printf("CHECKING line: '%s'\n", line);
             
-            line = strtok(NULL, "\n");
+            char newChannel[200];
+            int rc2 = returnTokenAtIndex(line, 3, newChannel);
+            if(rc2 == 1){
+                //Add to channel struct
+                addChannel(chans, newChannel);
+                chanCnt++;
+                line = NULL;
+            }else{
+        
+                //End of response data
+                //if(strstr(responses->buffer, "End of /LIST") != NULL){
+                if(strstr(line, "End of /LIST") != NULL){
+                    if(chanCnt == 0){
+                        printf("Found %d channels..\n", chanCnt);
+                        free(responses->buffer);
+                        free(responses);
+                        return -2;
+                    }
+                }
+                line = strtok(NULL, "\r\n");
+            }
         }
     }
 
     free(responses->buffer);
-    printf("here2...\n");
 
     return 0;
 }
@@ -214,85 +219,101 @@ extern int parseResponses(int *clientSocket, aR *replies)
         //Echo to stdout
         printf("Server: %s", responses->buffer);
         
-        //Automatic ping
-        if(strstr(responses->buffer, "PING") != NULL){
-            printf("\tReplying to ping..");
-            int rc = sendMessage(clientSocket, "pong\n", 5);
-            if(rc == 0){
-                free(responses);
-                free(responses->buffer);
-                return 1;
-            }
+        //Copy responses buffer
+        int len = strlen(responses->buffer);
+        //char *respCpy = malloc(len * sizeof(char));
+        char respCpy[MAXLEN];
+        memcpy(respCpy, responses->buffer, len);
+        respCpy[len] = '\0';
+        char *line = strtok(respCpy, "\n");
 
-            //Continue, dont parse responses
-            continue;
-        }
+        while(line != NULL){
+        printf("\tLINE: '!- %s -!'\n\n", line);
         
-        //Check all automated responses and reply accordingly
-        int cnt = 0;
-        while(bcmp(replies[cnt].regex, "EOA\0", 4) != 0){
-            if(regexMatch(replies[cnt].regex, responses->buffer) == 0){
-
-                //Copy responses buffer
-                char *respCpy = malloc(strlen(responses->buffer) * sizeof(char));
-                memcpy(respCpy, responses->buffer, strlen(responses->buffer));
-
-                //Retrieve channale name
-                char respChan[100];
-                int rc2 = returnTokenAtIndex(respCpy, 2, respChan);
-
-                //Get user name to respons to
-                char respUsr[100];
-                returnUserName(responses->buffer, respUsr);
-
-                //Compose the private message to user
-                char thisReply[200] = "";
-                int suppressReply = 0;
-
-                if(rc2 == 0 && replies[cnt].privateMsgFlag == 1){
-                    printf("\tUser to reply to: '%s'\n", respUsr);
-                    sprintf(thisReply, "PRIVMSG %s :%s\n", respUsr, replies[cnt].reply);
-                    
-                    //Test if repeatMsgCnt has not been depleted
-                    if(getValue(respCnts, respUsr, cnt, 0) >= replies[cnt].repeatMsgCnt\
-                            && getValue(respCnts, respUsr, cnt, 1) == cnt){
-                        printf("---Suppressing this private user response\n");
-                        suppressReply = 1;
-                    }else{
-                        //Add keys to list
-                        addKey(respCnts, respUsr, cnt, strlen(respUsr));
-                    }
+            //Automatic ping
+            if(strstr(line, "PING") != NULL){
+                printf("\tReplying to ping..");
+                int rc = sendMessage(clientSocket, "pong\n", 5);
+                if(rc == 0){
+                    free(responses);
+                    free(responses->buffer);
+                    return 1;
                 }
-                
-                //Compose channel message
-                if(rc2 == 1 && replies[cnt].privateMsgFlag == 0){
-                    sprintf(thisReply, "PRIVMSG %s :%s\n", respChan, replies[cnt].reply);
 
-                    //Test if repeatMsgCnt has not been depleted
-                    if(getValue(respCnts, respChan, cnt, 0) >= replies[cnt].repeatMsgCnt\
-                            && getValue(respCnts, respChan, cnt, 1) == cnt){
-                        printf("---Suppressing this channel message\n");
-                        suppressReply = 1;
-                    }else{
-                        //Add keys to list
-                        addKey(respCnts, respChan, cnt, strlen(respChan));
-                    }
-                }
+                //Continue, dont parse responses
+                break;
+                //continue;
+            }
             
-                //Send message
-                if(strlen(thisReply) > 0 && suppressReply == 0){
-                    printf("\nComposed response: '%s' len=%d\n\n", thisReply, strlen(thisReply));
-                    int rc = sendMessage(clientSocket, thisReply, strlen(thisReply));
+            //Check all automated responses and reply accordingly
+            int cnt = 0;
+            while(bcmp(replies[cnt].regex, "EOA\0", 4) != 0){
+                if(regexMatch(replies[cnt].regex, line) == 0){
+                    int rc2;
 
-                    if(rc == 0){
-                        printf("do some error handling dude\n");
+                    //Retrieve channel name
+                    char respChan[100];
+                    rc2 = returnTokenAtIndex(line, 2, respChan);
+
+                    //Get user name to respond to
+                    char respUsr[100];
+                    returnUserName(line, respUsr);
+
+                    //Compose the private message to user
+                    char thisReply[400];
+                    thisReply[0] = '\0';
+
+                    //Compose private user message
+                    if(rc2 == 0 && replies[cnt].privateMsgFlag == 1){
+                        printf("\tUser to reply to: '%s'\n", respUsr);
+                        sprintf(thisReply, "PRIVMSG %s :%s\n", respUsr, replies[cnt].reply);
+                        
+                        //Test if repeatMsgCnt has not been depleted
+                        if(getValue(respCnts, respUsr, cnt, 0) >= replies[cnt].repeatMsgCnt\
+                                && getValue(respCnts, respUsr, cnt, 1) == cnt){
+                            printf("\t---Suppressing this private user response\n\n");
+                            break;
+                        }else{
+                            //Add keys to list (response bookkeeping)
+                            addKey(respCnts, respUsr, cnt, strlen(respUsr));
+                        }
+                    }
+                    
+                    //Compose public channel message
+                    if(rc2 == 1 && replies[cnt].privateMsgFlag == 0){
+                        printf("\tchannel to reply to: '%s'\n", respChan);
+                        sprintf(thisReply, "PRIVMSG %s :%s\n", respChan, replies[cnt].reply);
+
+                        //Test if repeatMsgCnt has not been depleted
+                        if(getValue(respCnts, respChan, cnt, 0) >= replies[cnt].repeatMsgCnt\
+                                && getValue(respCnts, respChan, cnt, 1) == cnt){
+                            printf("\t---Suppressing this channel message\n");
+                            break;
+                        }else{
+                            //Add keys to list
+                            addKey(respCnts, respChan, cnt, strlen(respChan));
+                        }
+                    }
+                
+                    //Send message
+                    if(strlen(thisReply) > 0){
+                        printf("\nComposed response: '%s' len=%d\n\n", thisReply, strlen(thisReply));
+                        int rc = sendMessage(clientSocket, thisReply, strlen(thisReply));
+
+                        if(rc == 0){
+                            printf("do some error handling dude\n");
+                        }
+                        
+                        break;
                     }
                 }
-            }
 
-            cnt++;
-        }
-        
+                cnt++;
+            }//End of while bcmp of line with replies
+
+            line = strtok(NULL, "\n");
+        }//End of while line != NULL
+
         responses->buffer[0] = '\0';
         
         //Reload replies at runtime (optional)
@@ -304,6 +325,7 @@ extern int parseResponses(int *clientSocket, aR *replies)
 
     free(responses->buffer);
     free(responses);
+    freeHashMap(respCnts);
     return 0;
 }
     
@@ -311,6 +333,8 @@ extern int parseResponses(int *clientSocket, aR *replies)
 extern int joinChannels(int *clientSocket, chanList *chans)
 {
     chanList *head = chans->next;
+    int max = 10;
+    int cnt = 0;
 
     if(head == NULL){
         printf("\tNo channels to join\n");
@@ -323,7 +347,7 @@ extern int joinChannels(int *clientSocket, chanList *chans)
 
     while(head != NULL){
         printf("Joining channel: %s\n", head->chanName);
-
+        cnt++;
         snprintf(cmd, MAXLEN, "join %s\n", head->chanName);
 
         rc = sendMessage(clientSocket, cmd, strlen(cmd));
@@ -340,6 +364,16 @@ extern int joinChannels(int *clientSocket, chanList *chans)
                 free(responses->buffer);
                 break;
             }
+            //Too many channels..
+            if(strstr(responses->buffer, "You have joined too many channels") != NULL){
+                free(responses->buffer);
+                printf("Done joining channels, server limit reached..\n");
+                return 0;
+            }
+
+            if(cnt == max)
+                return 0;
+            
             free(responses->buffer);
         }
 
@@ -476,8 +510,7 @@ extern int addChannel(chanList *chans, char *channelName)
 {
     chanList *curr = chans;
     while(curr->next != NULL){
-        printf(".");
-        curr = chans->next;
+        curr = curr->next;
     }
 
     //Add channel to list
@@ -485,7 +518,7 @@ extern int addChannel(chanList *chans, char *channelName)
     memcpy(curr->next->chanName, channelName, strlen(channelName));
     curr->next->chanName[strlen(channelName)] = '\0';
     curr->next->next = NULL;
-    printf("Added channel '%s' | '%s'\n", channelName, chans->next->chanName);
+    printf("Added channel '%s'\n", channelName);
 
     return 0;
 }
