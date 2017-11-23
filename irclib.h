@@ -37,7 +37,7 @@ extern int joinChannels(int *clientSocket, chanList *chans);
 extern int parseResponses(int *clientSocket, aR *replies);
 
 //Call "list" and store all channels into channel list
-extern int getAllChannels(int *clientSocket, chanList *chans);
+extern int getAllChannels(int *clientSocket, chanList *chans, int max);
 
 //Retrieves all automated responses, including regex triggers
 extern int retrieveAutomatedReplies(aR *replies, char *fileName);

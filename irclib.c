@@ -128,7 +128,7 @@ extern int retrieveAutomatedReplies(aR *replies, char *fileName)
 }
 
 //Call "list" and store all channels into channel list
-extern int getAllChannels(int *clientSocket, chanList *chans)
+extern int getAllChannels(int *clientSocket, chanList *chans, int max)
 {
     //Call list command
     int rc = sendMessage(clientSocket, "list\n", 5);
@@ -142,6 +142,11 @@ extern int getAllChannels(int *clientSocket, chanList *chans)
 
     //Get all response data until socket times out
     while(1){
+        if(chanCnt >= max){
+            printf("Max channels reached (%d), breaking off here\n", max);
+            sleep(3);
+            return 0;
+        }
         int rc = recvMessage(clientSocket, responses, 1);
         
         //No response data after socket timeout
@@ -225,7 +230,7 @@ extern int parseResponses(int *clientSocket, aR *replies)
         char respCpy[MAXLEN];
         memcpy(respCpy, responses->buffer, len);
         respCpy[len] = '\0';
-        char *line = strtok(respCpy, "\n");
+        char *line = strtok(respCpy, "\r\n");
 
         while(line != NULL){
         printf("\tLINE: '!- %s -!'\n\n", line);
@@ -311,7 +316,7 @@ extern int parseResponses(int *clientSocket, aR *replies)
                 cnt++;
             }//End of while bcmp of line with replies
 
-            line = strtok(NULL, "\n");
+            line = strtok(NULL, "\r\n");
         }//End of while line != NULL
 
         responses->buffer[0] = '\0';
@@ -333,7 +338,6 @@ extern int parseResponses(int *clientSocket, aR *replies)
 extern int joinChannels(int *clientSocket, chanList *chans)
 {
     chanList *head = chans->next;
-    int max = 10;
     int cnt = 0;
 
     if(head == NULL){
@@ -371,9 +375,6 @@ extern int joinChannels(int *clientSocket, chanList *chans)
                 return 0;
             }
 
-            if(cnt == max)
-                return 0;
-            
             free(responses->buffer);
         }
 
@@ -443,7 +444,7 @@ extern int ircLogin(appConfig *ircData, int *clientSocket)
     respBuf *responses = malloc(RESPBUFSZ * sizeof(respBuf));
 
     while(recvMessage(clientSocket, responses, 1)){
-        printf("Server: %s", responses->buffer);
+        printf("%s", responses->buffer);
         
         //End of login function success
         if(strstr(responses->buffer, " MODE ") != NULL){
