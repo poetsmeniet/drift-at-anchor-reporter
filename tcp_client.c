@@ -7,7 +7,7 @@
 #include <string.h>
 #include "tcp_client.h"
 #include <arpa/inet.h>
-#define MAXSZ 19024
+#define MAXSZ 190240
 //This library does not support protocol specifics such as chunk encoding
 
 //Sends data over socket
