@@ -157,7 +157,7 @@ extern int getAllChannels(int *clientSocket, chanList *chans, int max)
 
         char respCpy[MAXLEN];
         if(strlen(responses->buffer) > MAXLEN){
-            printf("\n\ntring to FIT %d into %d will not work. Resonse sz too graet\n\n", strlen(responses->buffer), MAXLEN);
+            printf("\n\nTrying to FIT %d into %d will not work. Resonse sz too graet\n\n", strlen(responses->buffer), MAXLEN);
             return 1;
         }
         memcpy(respCpy, responses->buffer, strlen(responses->buffer));
@@ -221,9 +221,6 @@ extern int parseResponses(int *clientSocket, aR *replies)
             return -2;
         }
 
-        //Echo to stdout
-        printf("Server: %s", responses->buffer);
-        
         //Copy responses buffer
         int len = strlen(responses->buffer);
         //char *respCpy = malloc(len * sizeof(char));
@@ -233,11 +230,9 @@ extern int parseResponses(int *clientSocket, aR *replies)
         char *line = strtok(respCpy, "\r\n");
 
         while(line != NULL){
-        printf("\tLINE: '!- %s -!'\n\n", line);
-        
             //Automatic ping
             if(strstr(line, "PING") != NULL){
-                printf("\tReplying to ping..");
+                printf("\tReplying to ping..\n");
                 int rc = sendMessage(clientSocket, "pong\n", 5);
                 if(rc == 0){
                     free(responses);
@@ -247,7 +242,6 @@ extern int parseResponses(int *clientSocket, aR *replies)
 
                 //Continue, dont parse responses
                 break;
-                //continue;
             }
             
             //Check all automated responses and reply accordingly
@@ -302,7 +296,7 @@ extern int parseResponses(int *clientSocket, aR *replies)
                 
                     //Send message
                     if(strlen(thisReply) > 0){
-                        printf("\nComposed response: '%s' len=%d\n\n", thisReply, strlen(thisReply));
+                        printf("\tComposed response: '%s'", thisReply);
                         int rc = sendMessage(clientSocket, thisReply, strlen(thisReply));
 
                         if(rc == 0){
@@ -417,7 +411,7 @@ extern int spawnShell(int *clientSocket)
         }
         
         if(strstr(responses->buffer, "PING") != NULL){
-            printf("Replying to ping.. \n");
+            printf("Replying to ping..\n");
             rc = sendMessage(clientSocket, "pong\n", 5);
             if(rc == 0){
                 free(responses);
