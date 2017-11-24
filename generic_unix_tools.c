@@ -52,7 +52,7 @@ extern int regexMatch(char *regex, char *string){
     //Compile regex, case insensitive
     int rc = regcomp(&preg, regex, REG_ICASE);
     if(rc != 0){
-        printf("Regex compilation failed, rc = %d\n", rc);
+        printf("Regex compilation failed, rc = %d (%s)\n", rc, regex);
         return 1;
     }
 
