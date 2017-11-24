@@ -45,12 +45,12 @@ int main(void)
         return 1;
     }
     
-    //printf("\nRequesting all channels...\n");
-    //if(getAllChannels(&clientSocket, chans) == -2){
-    //    printf("Recall getallchans..\n");
-    //    rc = getAllChannels(&clientSocket, chans);
-    //}
-    //printf("done");
+    printf("\nRequesting all channels...\n");
+    size_t max = 5;
+    if(getAllChannels(&clientSocket, chans, max) == -2){
+        printf("Recall getallchans..\n");
+        rc = getAllChannels(&clientSocket, chans, max);
+    }
 
     if(rcChan == 0){
         rc = joinChannels(&clientSocket, chans);
