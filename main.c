@@ -21,8 +21,9 @@ int main(void)
     chanList *chans = malloc(sizeof(chanList));
     chans->next = NULL;
 
-    int rcChan = addChannel(chans, "#Botchan");
-    
+    //Retrieve channels in this file
+    getChannelsFromFile(chans, "channels.txt");
+
     //Retreive configuration parameters
     appConfig config;
     if(getConfig(&config, "config.txt") == 1){ //Offload this later as parameter
@@ -52,9 +53,7 @@ int main(void)
         rc = getAllChannels(&clientSocket, chans, max);
     }
 
-    if(rcChan == 0){
-        rc = joinChannels(&clientSocket, chans);
-    }
+    rc = joinChannels(&clientSocket, chans);
 
     //Running parsing of responses
     printf("Starting parseResponses..\n");
