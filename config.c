@@ -37,7 +37,11 @@ extern int getConfig(appConfig *config, char *filename){
             char sKey[MAXLEN];
             char sVal[MAXLEN];
 
-            fscanf(fp, "%s %99[^\n]\n", &sKey[0], sVal);
+            int rc = fscanf(fp, "%s %99[^\n]\n", &sKey[0], sVal);
+            if(rc == 0){
+                printf("\tError in '%s', line number %d\n", filename, lineNr);
+                return -1;
+            }
 
             size_t keyLen = strlen(sKey) + 1;
             size_t valLen = strlen(sVal) + 1;
