@@ -155,6 +155,8 @@ extern int getAllChannels(int *clientSocket, chanList *chans, int max)
             return 1;
         }
 
+        printf("\nREsPonSe: '%s'\n", responses->buffer);
+
         char respCpy[MAXLEN];
         if(strlen(responses->buffer) > MAXLEN){
             printf("\n\nTrying to FIT %d into %d will not work. Resonse sz too graet\n\n", strlen(responses->buffer), MAXLEN);
@@ -166,20 +168,14 @@ extern int getAllChannels(int *clientSocket, chanList *chans, int max)
         char *line = NULL;
         line = strtok(respCpy, "\r\n");
         while(line != NULL){
-            //printf("RESPCPY: '%s'\n", respCpy);
-            //printf("CHECKING line: '%s'\n", line);
-            
             char newChannel[200];
             int rc2 = returnTokenAtIndex(line, 3, newChannel);
             if(rc2 == 1){
                 //Add to channel struct
                 addChannel(chans, newChannel);
                 chanCnt++;
-                line = NULL;
             }else{
-        
-                //End of response data
-                //if(strstr(responses->buffer, "End of /LIST") != NULL){
+                //End of response data?
                 if(strstr(line, "End of /LIST") != NULL){
                     if(chanCnt == 0){
                         printf("Found %d channels..\n", chanCnt);
@@ -188,8 +184,8 @@ extern int getAllChannels(int *clientSocket, chanList *chans, int max)
                         return -2;
                     }
                 }
-                line = strtok(NULL, "\r\n");
             }
+            line = strtok(NULL, "\r\n");
         }
     }
 
