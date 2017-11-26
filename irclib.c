@@ -109,8 +109,6 @@ extern int retrieveAutomatedReplies(aR *replies, char *fileName)
                     memcpy(replies[lineNr].reply, reply, strlen(reply));
                     replies[lineNr].reply[valLen] = '\0';
                     lineNr++;
-
-                    //printf("\tAdded regex to replies '%s'\n", regex);
                 }
             }
         }
@@ -154,8 +152,6 @@ extern int getAllChannels(int *clientSocket, chanList *chans, int max)
             free(responses);
             return 1;
         }
-
-        printf("\nREsPonSe: '%s'\n", responses->buffer);
 
         char respCpy[MAXLEN];
         if(strlen(responses->buffer) > MAXLEN){
@@ -511,5 +507,42 @@ extern int addChannel(chanList *chans, char *channelName)
     curr->next->next = NULL;
     printf("Added channel '%s'\n", channelName);
 
+    return 0;
+}
+
+//A quick write for retrieving channels frome external file
+extern int getChannelsFromFile(chanList *chans, char *fileName)
+{
+    size_t lineNr = 0;
+    FILE *fp;
+    fp = fopen(fileName, "r");
+
+    if(fp != NULL){
+        while(!feof(fp)){
+            lineNr++;
+            char sVal[MAXLEN];
+
+            int rc = fscanf(fp, "%s", sVal);
+
+            if(rc == 0){
+                printf("\tError in '%s', line number %d\n", fileName, lineNr);
+                return -1;
+            }
+
+            size_t valLen = strlen(sVal) + 1;
+            if(valLen > MAXLEN){
+               printf("\nSorry, maximum length of channel name exceeded (%d)\n", MAXLEN);
+               return 1;
+            }
+            
+            if(rc == 1)
+                addChannel(chans, sVal);
+        }
+    }else{
+        //Pocess error
+        printf("There was an issue loading '%s'\n", fileName);
+        return 1;
+    }
+    fclose(fp);
     return 0;
 }
